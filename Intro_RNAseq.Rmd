@@ -1,0 +1,1140 @@
+---
+title: "Introduction to RNA-seq analysis"
+author: "Frank Wessely"
+date: "14 June 2021"
+output:
+  html_document:
+    number_sections: yes
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+knit: (function(input_file, encoding) {
+  out_dir <- 'docs';
+  rmarkdown::render(input_file,
+ encoding=encoding,
+ output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
+---
+
+***
+
+# Notes
+
+* this file is intended to give a practical introduction to the first main steps of (bulk) RNA-seq analysis
+* starting from FASTQ files containing the sequencing reads from a sequencing machine
+
+* the first steps using the raw data are usually performed by external tools outside R/RStudio
+* we will showcase how to run some of the external tools
+* analysis is performed within R *after* the alignment of reads and generation of counts for each sample, which will be imported into R
+
+***
+
+* it will be an interactive session where we go through this `.Rmd` (R Markdown) file and run the code chunks as we go along
+* individual code chunks can be run by clicking the green triangle in the upper right corner within RStudio
+* note, that code chunks with the option `eval=FALSE` are *not* meant to be run here
+* they just produce examples or (external) code to be shown in the output HTML file
+* some of the code given in those code chunks might be helpful for you in the future
+
+***
+
+* the training material contains the output HTML file (`Intro_RNAseq_v1_out.html`) of this .Rmd file
+* this file is generated if you run/knit this whole .Rmd file 
+* i.e. if you clicked the 'Knit' button in RStudio
+* the HTML output file name will be `Intro_RNAseq_v1.html` (without '_out')
+
+***
+
+**Some set-ups regarding this file**
+
+1.
+* please check whether you are able to load all the R packages in the chunk `setup`
+* see also the notes below regarding the installation of R packages
+
+2.
+* please change the variable `input_dir` in chunk `training_files` to the path/location where you stored the training material folder called `Training_RNAseq_part_1`
+* *don't forget the last slash at the end!*
+* on Windows you'd specify something like this: `input_dir <- "C:/Users/USERNAME/Desktop/Training_RNAseq_part_1/"`
+
+3.
+* Windows only!
+* there is an issue with finding the cached tximeta metadata folder on *Windows* (when calling `setTximetaBFC()`)
+* it seems to require a specific folder, in which it will create a file pointing to the cached folder
+
+* here in RStudio you can run the following code to create this directory structure
+
+```{r windows_directory, eval=F}
+
+dir.create(paste("C:/Users/", Sys.getenv("USERNAME"), "/AppData/Local/tximeta/tximeta/Cache", sep = ""), recursive=TRUE)
+
+## or, if you know your username, you can manually specify your USERNAME:  
+## dir.create("C:/Users/USERNAME/AppData/Local/tximeta/tximeta/Cache", recursive=TRUE)
+
+```
+
+***
+
+**External tools**
+
+* we mention and let you run a few external tools
+* those are usually run on dedicated external computer clusters making use of computational resources not available on standard laptops or desktop machines
+
+* it is **not** necessary to run those tools during the training session
+* however, it would be good to give it a go on your machines (on a smaller subset of the data)
+
+* external tools are usually run via bash shell scripts (`.sh` files) provided as part of the training material
+* in a shell (Terminal on MacOS), a command line interface, they are run by typing `bash script_name.sh`
+* you can also use the `Terminal` within RStudio itself (tab `Terminal` in the bottom left panel)
+
+* some explanation of the external code is provided here to help you understand the code in the `.sh` files
+* also this online tool might help to understand command line/shell script code: [explainshell.com](https://explainshell.com)
+
+* those tools are: 
+  + [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
+  + [MultiQC](https://multiqc.info)
+  + [Salmon](https://github.com/COMBINE-lab/salmon)
+  
+* all tools can be installed via [conda/bioconda](http://bioconda.github.io/user/install.html)
+* please follow the instructions to install Miniconda described in the link above
+* note, Bioconda supports only 64-bit Linux and Mac OS
+
+* the 3 tools can then be easily installed:
+
+* `conda install -c bioconda fastqc`
+* `conda install -c bioconda salmon`
+* `conda install -c bioconda multiqc`
+
+**R packages**
+
+* see the code chunk `setup` below
+* if all packages in this chunk can be loaded then all code of this Rmd file should be executable
+
+* [CRAN](https://cran.r-project.org) packages can be easily installed within RStudio
+* click on `Packages` tab in the bottom right RStudio panel
+* click on `install` button and search for a specific package and select from the list
+* tick the box `Install dependencies` (should be the default)
+
+* [Bioconductor](https://www.bioconductor.org) packages are installed via the R package [BiocManager](https://cran.r-project.org/web/packages/BiocManager/vignettes/BiocManager.html)
+* install `BiocManager` first, as any other CRAN package as described above
+* individual Bioconductor packages can be installed via: `BiocManager::install("DESeq2", dependencies=TRUE)`
+
+***
+
+```{r setup, message=FALSE, warning=FALSE}
+
+library(rmarkdown)
+library(knitr)
+library(ggplot2)
+library(data.table) # read in data with fread()
+library(DT) # create HTML tables with datatable()
+library(readr) # read in data faster via tximport
+library(tximport) # uses readr package for faster import if available
+library(tximeta) # extends tximport
+library(DESeq2) # differential expression analysis
+library(genefilter) # rowVars(), imported by DESeq2
+library(SummarizedExperiment) # colData()
+
+## cache = TRUE - cache results (in a folder) for future knits - set TRUE for running on local machine
+## caching avoids re-running code if unchanged
+## echo = TRUE  - display code in output document 
+knitr::opts_chunk$set(cache = FALSE, echo = TRUE)
+
+## white background theme for all ggplot2 plots
+theme_set(theme_bw())
+```
+
+* there are a number of files and folders as part of the training material
+
+* **please change** `input_dir` to the corresponding path of your system
+
+
+```{r training_files}
+
+###### change accordingly ######
+## folder with training material
+# input_dir <- "/Users/USERNAME/Desktop/Training_RNAseq_part_1/"
+# input_dir <- "C:/Users/USERNAME/Desktop/Training_RNAseq_part_1/"
+# input_dir <- "/Users/frankwessely/Desktop/Documents/Meetings/RNAseq_workshop_Jun2021/"
+## use data saved on github folder 'Data'
+input_dir <- "./Data/"
+
+## samples metadata
+samples_info_file <- paste0(input_dir, 
+                            "sample_annotation_training.txt")
+
+## Salmon quantification output (all reads used)
+salmon_quant_dir <- paste0(input_dir, 
+                           "Salmon_mapping/Salmon_quant_110_ensembl_v99_noalt_decoy_k31_all_reads")
+
+## Salmon index
+## NOTE: contains  only 'info.json' (and duplicate_clusters.tsv), not the whole index!
+salmon_index <- paste0(input_dir, 
+                       "Salmon_index/salmon_idx_ensembl_GRCh38_cdna_ncrna_v99_noalt_decoy_k31")
+
+## Salmon removes identical sequences from the reference and retains one
+salmon_duplicates_file <- paste0(salmon_index,
+                                 "/duplicate_clusters.tsv")
+
+## ensembl GTF gene annotation
+gtf_file <- paste0(input_dir, 
+                   "Reference_training/Homo_sapiens.GRCh38.99.gtf.gz")
+
+## transcript sequences used for salmon index
+salmon_fasta_input <- paste0(input_dir, 
+                             "Reference_training/ensembl_GRCh38_cdna_ncrna_v99_noalt.fa.gz")
+
+## transcript to gene info table
+t2g_file <- paste0(input_dir, 
+                   "Reference_training/ensembl_GRCh38_v98_cdna_ncrna_v99_noalt_gene_map.txt")
+
+
+## tximeta BiocFileCache directory for accessing and saving TxDb sqlite files
+tximeta_cache_folder <- paste0(input_dir, 
+                               "tximeta_cache_ensembl_v99_decoy")
+
+## for tximeta, generated by makeLinkedTxome()
+jsonFile <- paste0(tximeta_cache_folder, 
+                   "/ensembl_v99_cdna_ncrna_noalt_decoy.json")
+
+## SummarizedExperiment file using tximeta for data import, will be loaded here instead of generated
+se_file <- paste0(input_dir, "se_object_from_tximeta.rds")
+```
+
+
+# Initial quality control
+
+## FASTQ files
+
+* text-based files containing the final output from a sequencing machine 
+* serve as starting point for RNA-seq analysis
+
+* usually one (single-end) or two (paired-end) FASTQ files per sample
+* there can be more FASTQ files per sample if the library was run on multiple lanes of the sequencing machine
+* usually with file extension `.fastq` or `.fq` and usually compressed `.fastq.gz`
+* paired-end sequencing: read 1 in `1.fastq.gz` and read 2 in `2.fastq.gz`
+
+* 4 lines per read
+* read about the [FASTQ format](https://en.wikipedia.org/wiki/FASTQ_format)
+
+* for example, read 1 and 2 of one read pair from `1.fastq.gz` and `2.fastq.gz`, respectively:
+
+```{r fastq_example, eval=FALSE}
+
+@K00198:129:HG7LHBBXX:8:2128:8521:47735 1:N:0:CGAGAGAG
+GGAAAAGAATTGGGGAAGAAAACCAACAACTGCCTTATGCAGGGGTGGGGACAGGGAAGGAGGTAGGGCCAGGGA
++
+AAFFFJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJFJJJJJJJJJJJJJJJJJ<JJJJJJJJJJ<
+  
+@K00198:129:HG7LHBBXX:8:2128:8521:47735 2:N:0:CGAGAGAG
+GGTTCTCCTCTTAAGGCCAGTTGAAGATGGTCCCTTACAGCTTCCCAAGTTAGGTTAGTGATGTGAAATGCTCCT
++
+AA<FFJJJJJJJJJJJJJJJJJJJJAJJJJJJJJJFFFJJJJJJFJJJJJJJJJFJJJFFJJJJJJ<FJJJJJJJ
+```
+
+## Training data
+
+* bulk RNA-seq from 7 samples of iPSC-derived astrocytes: 
+* 4 samples from Parkinson's disease (PD) and 3 samples from healthy controls (CT)
+
+* polyA+ enrichment, 75bp paired-end, Illumina HiSeq 4000
+* sequencing data is available from Gene Expression Omnibus [GEO GSE120306](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE120306)
+
+* European Nucleotide Archive [ENA](https://www.ebi.ac.uk/ena/data/view/PRJNA492470) provides direct access to published FASTQ files 
+* data table contains FTP links to download original FASTQ files
+
+* for example, use the command `wget` (or `curl -O`) in your terminal/shell to download paired-end sequencing data of one sample from ENA to your current directory:
+
+```{r fastq_download_example, eval=FALSE}
+
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR788/005/SRR7889835/SRR7889835_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR788/005/SRR7889835/SRR7889835_2.fastq.gz
+```
+
+* note, for this training 100,000 (100K) read pairs were randomly selected from the original paired FASTQ files using [seqtk sample](https://github.com/lh3/seqtk)
+* `seqtk` is a handy tool for processing FASTQ (and FASTA) files
+
+* here, sub-sampled FASTQ files are provided in the folder `./Fastq_files/Fastq_training_subsample_100K`
+
+## FastQC
+
+* widely used first-line QC tool to assess raw (or pre-processed/trimmed) FASTQ files
+* Java programme available [here](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
+* can be installed via conda/bioconda: e.g. `conda install -c bioconda fastqc`
+
+* run for every FASTQ file as input
+* generates a HTML report for each FASTQ file
+
+* here is an example bash script to run FastQC for all FASTQ files in the input directory:
+
+```{r, code = readLines("./Shell_scripts/run_fastqc_training.sh"), eval=F}
+```
+
+**some explanation**
+
+* it assumes that the `fastqc` command is known
+
+* `.` the dot in `./Fastq_files/Fastq_training_subsample_100K` specifies the *current directory*
+* `mkdir -p` make directory with `-p` option: no error if existing, make parent directories as needed
+* `$NAME` the dollar sign `$` will access the value assigned (via `=`) to the variable `NAME`
+* `for` iterates over all FASTQ files (ending with `.fastq.gz`) found in the input directory
+* `*` a placeholder
+* `echo` print text
+
+* note, mutiple files can be specified as input to FastQC, best to use multiple threads in that case (`-t` argument)
+* type this command in your terminal to see all options: `fastqc --help`
+
+***
+
+**Tasks:**   
+
+1. 
+open a terminal/shell and change into the folder `Training_RNAseq_part_1` using the `cd` command, e.g. `cd Desktop/Training_RNAseq_part_1`, press the `Tab` key for auto-completion of names you have started to type  
+
+2. 
+run FastQC on sub-sampled FASTQ files with 100K reads by typing: `bash run_fastqc_training.sh`  
+
+3. 
+check the contents of the output folder: `./FastQC/FastQC_output_100K`
+
+***
+
+* the HTML report contains a number of summary plots to quickly assess your data
+* the individual QC tests come with a flag: pass, warn or failure
+* note that warnings or failures can happen in perfectly fine sequencing datasets
+* for example, RNA-seq data usually fails in the `Per Base Sequence Content` check because of a known bias at the start of the sequences, see [here](https://sequencing.qcfail.com/articles/positional-sequence-bias-in-random-primed-libraries/) for more information about this
+
+* help and explanation of different FASTQC analysis modules: [FastQC Help](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/Help/)
+
+* also see a [good](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/good_sequence_short_fastqc.html) and a [bad](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/bad_sequence_fastqc.html) example on the FastQC website
+
+## MultiQC
+
+* very useful [reporting tool](https://multiqc.info) to merge summary statistics from [many bioinformatics tools](https://multiqc.info/docs/#multiqc-modules), including FastQC
+* can be [installed](https://multiqc.info/docs/#installing-multiqc) via conda/bioconda: e.g. `conda install -c bioconda fastqc`
+
+* recursively searches through any provided file directories and finds files that it recognises
+* provides convenient HTML report file
+
+* here is an example bash script to run MultiQC summarising the FastQC results:
+
+```{r code = readLines("./Shell_scripts/run_multiqc_training.sh"), eval=F}
+```
+
+**some explanation**
+
+* it assumes that the `multiqc` command is known
+
+* a backslash `\` (directly followed by a linebreak) means the command continuous in the next line
+* `--cl_config` allows module-specific config values to be set, e.g. add a theoretical distribution of GC content
+* type this command in your terminal to see all options: `multiqc --help`
+
+***
+
+**Task:**  run MultiQC to summarise FastQC results: `bash run_multiqc_training.sh`
+
+***
+
+* multiple QC modules from different tools can be combined into one large report
+* here is an [example report for RNA-seq data](https://multiqc.info/examples/rna-seq/multiqc_report.html) combining results from multiple tools
+
+
+## Optional steps
+
+* upon initial inspection it may be necessary to pre-process the raw FASTQ files before proceeding
+
+* for example, FastQC results might reveal adapter sequence contamination or very low-quality read ends
+
+* several tools are available for adapter removal and/or quality trimming 
+* for example, [cutadapt](https://cutadapt.readthedocs.io/en/stable/) or [fastp](https://github.com/OpenGene/fastp)
+
+
+
+# Alignment and quantification
+
+* general task: find the origin of reads within the genome/transcriptome and quantify transcript/gene expression
+
+* here we use [Salmon](https://github.com/COMBINE-lab/salmon) as a *transcript quantification tool*
+* Salmon aligns reads to a reference transcriptome and estimates transcript-level abundances
+
+* can be installed via conda/bioconda: e.g. `conda install -c bioconda salmon`
+* pre-compiled [binary releases](https://github.com/COMBINE-lab/salmon/releases) are available for linux environments
+
+* other common tools for RNA-seq data:
+  + [Kallisto](https://pachterlab.github.io/kallisto/about.html) (similar to Salmon, another 'lightweight quantifier')
+  + [STAR](https://github.com/alexdobin/STAR) (general purpose splice-aware aligner)
+  + [HISAT2](https://daehwankimlab.github.io/hisat2/) (another splice-aware aligner, less memory demand than STAR)  
+
+
+* STAR and HISAT2 produce output files in [SAM/BAM format](https://samtools.github.io/hts-specs/SAMv1.pdf)
+* the alignment information contained in those (usually large) files can be used by additional tools to perform transcript quantification
+* in fact, alignments (to the transcriptome)  reported by STAR (or other aligners) can be used as input to Salmon (instead of providing the raw sequencing reads) to obtain transcript abundances [Salmon's alignment-based mode](https://salmon.readthedocs.io/en/latest/salmon.html#quantifying-in-alignment-based-mode)
+
+* here we use Salmon in the mapping-based mode directly processing reads
+* this requires a specific data structure of the transcriptome - an index
+
+## Transcriptome
+
+* we need an organism-specific reference, human in our case
+
+* get a reference set of (spliced) transcripts from [ensembl](https://www.ensembl.org/info/data/ftp/index.html) or [GENCODE](https://www.gencodegenes.org/)
+
+* ensembl provides two FASTA files for coding (cDNA) and non-coding (ncRNA) transcript sequences
+* it is recommended to use *both* types of transcripts for more accurate quantification
+
+
+* download (`wget` or `curl -O`) cDNA and ncRNA transcript sequences from ensembl
+* combine/concatenate the two FASTA files using the `cat` command
+* also we exclude alternative (or alternate) transcript sequences with ensembl location `CHR_H*`, which are allelic sequences (haplotypes and novel patches) or assembly fix patches, and are not part of the primary assembly
+
+* here is example code for those steps to obtain the transcriptome from ensembl (no need to run):
+
+```{r ensembl_reference, eval=FALSE}
+
+wget ftp://ftp.ensembl.org/pub/release-99/fasta/homo_sapiens/cdna/Homo_sapiens.GRCh38.cdna.all.fa.gz
+wget ftp://ftp.ensembl.org/pub/release-99/fasta/homo_sapiens/ncrna/Homo_sapiens.GRCh38.ncrna.fa.gz
+
+cat Homo_sapiens.GRCh38.cdna.all.fa.gz Homo_sapiens.GRCh38.ncrna.fa.gz \
+> ensembl_GRCh38_cdna_ncrna_v99.fa.gz
+
+gunzip -c ensembl_GRCh38_cdna_ncrna_v99.fa.gz | grep '^>' | grep -v 'CHR_H' | tr -d '>' \
+> non_alt_seq_names.txt
+
+## this takes a minute or so, linebreak at 80 bases
+seqtk subseq -l 80 \
+ensembl_GRCh38_cdna_ncrna_v99.fa.gz non_alt_seq_names.txt | \
+gzip -c > ensembl_GRCh38_cdna_ncrna_v99_noalt.fa.gz
+```
+
+**some explanation:**
+
+* `gunzip -c` expand the `.gz` FASTA file
+* `|` the pipe takes the output from one command and uses it as the input to the next command
+* `grep 'pattern'` print lines matching a pattern
+* `grep '^>'` print lines starting with `>` (FASTA sequence headers always start with a `>`)
+* `grep -v CHR_H` print non-matching lines
+* `tr -d '>'` simply delete the '>' character
+* `>` redirect the output to the specified file
+
+* `seqtk subseq` is used to extract those sequences with matching names in `non_alt_seq_names.txt`
+* `gzip -c` compress the FASTA file
+
+* note, for any command line tool you can get help (manual page) by typing `man` followed by the tool name e.g. `man grep` or `man tr`
+* leave the man page by pressing `Q` on your keyboard
+
+***
+
+* note, in some cases more transcript sequences need to be added to the reference transcriptome
+* for example, if [ERCC RNA Spike-In Mix](https://www.thermofisher.com/order/catalog/product/4456740#/4456740) was used, also add the 92 ERCC sequences to the transcriptome
+* the FASTA file of ERCCs can be obtained from [here](https://tools.thermofisher.com/content/sfs/manuals/ERCC92.zip)
+
+
+## Index transcriptome
+
+* first step to run Salmon means *indexing* the transcriptome as it is needed for efficient search
+* this step is totally *independent* of the sequencing reads
+* needs to be done only once for that specific reference and can be re-used for future runs/experiments
+
+* build the Salmon index for the reference transcriptome (cDNA plus ncRNA):
+
+```{r salmon_index_transcriptome, eval=F}
+
+salmon index \
+-t ensembl_GRCh38_cdna_ncrna_v99_noalt.fa.gz \
+-i salmon_idx_ensembl_GRCh38_cdna_ncrna_v99_noalt_k31 \
+-p 24
+```
+
+* creates an index directory as specified by `-i`
+* the indexing step takes a little while, if possible make use of multiple threads (`-p`) to speed it up
+
+* note, the default k-mer size (31) was used, which specifies the minimum match length used when searching for alignments
+* having reads shorter than 75bp, e.g. 50bp or many reads trimmed (e.g. down to 30bp), a lower value is recommended, e.g. (`-k 23`)
+
+* type this command in your terminal to see all Salmon index options: `salmon index --help`
+
+## Index decoy-aware transcriptome
+
+* recommended to build a decoy-aware transcriptome to improve accuracy of transcript quantification
+* deal with reads that could originate from un-annotated genomic locus that is sequence-similar to an annotated (i.e. known) transcript
+* helps to prevent reads from spuriously aligning to the transcriptome
+
+* more information about this can be found on [bioRxiv](https://www.biorxiv.org/content/10.1101/657874v2) and this [blog post](https://combine-lab.github.io/alevin-tutorial/2019/selective-alignment/)
+* see also [Salmon documentation](https://salmon.readthedocs.io/en/latest/salmon.html)
+
+* most compregensive solution: use the *whole genome* as decoy
+* a read (fragment) is discarded if it aligns *better*(!) to a decoy genome sequence rather than a transcript sequence
+
+* download (`wget` or `curl -O`) the genomic sequences
+* extract sequence names of genome targets (decoys) as a list of chromosome names saved in a text file called `decoys_ensembl_v99_primary.txt`:
+
+```{r ensembl_reference_decoy, eval=F}
+
+wget ftp://ftp.ensembl.org/pub/release-99/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
+
+gunzip -c Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz | \
+grep '^>' | \
+cut -d ' ' -f1 | \
+tr -d '>' \
+> decoys_ensembl_v99_primary_tester.txt
+```
+
+**some explanation**
+
+* `cut -d ' ' -f1` specify a space character as a field delimiter and extract the first field/string (before the first space)
+* basically the code extracts and converts all FASTA headers to give us all chromosome/contig names
+* e.g. for chromsome 1 with the FASTA header `>1 dna:chromosome chromosome:GRCh38:1:1:248956422:1 REF`, it simply extracts `1` and stores it as one line in the output file, the same is done for chromosome 2 etc. and all other contigs
+
+***
+
+* GRCh38 primary assembly (all top-level sequence regions excluding haplotypes & patches) has 194 genome sequences:
+* 1-22 autosomes, X, Y, MT, 16 GL\*, 153 KI\* (unlocalised and unplaced scaffolds/contigs)
+* these 194 sequence names are listed in `decoys_ensembl_v99_primary_tester.txt`
+
+* next, concatenate (`cat`) the transcriptome and genome FASTA files and build a decoy-aware Salmon index 
+
+```{r salmon_index_decoy, eval=F}
+
+cat ensembl_GRCh38_cdna_ncrna_v99_noalt.fa.gz Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz \
+ > ensembl_GRCh38_cdna_ncrna_v99_noalt_gentrome.fa.gz
+
+salmon index \
+-t ensembl_GRCh38_cdna_ncrna_v99_noalt_gentrome.fa.gz \
+-d decoys_ensembl_v99_primary.txt \
+-i salmon_idx_ensembl_GRCh38_cdna_ncrna_v99_noalt_decoy_k31 \
+-p 24
+```
+
+* again, this takes a while, needs some memory resources and will produce an index of about 18GB(!)
+
+## Salmon quant
+
+* now that we have an index, let's align our 100,000 reads and quantify!
+* i.e. run Salmon to estimate transcript-level abundances using the transcriptome index
+
+* for this training, we use the Salmon index *without* genome decoys
+* simply because it is smaller in size (< 1GB vs 18GB for the decoy-aware index)
+* the complete Salmon transcriptome index is part of the training material: `./Salmon_index/salmon_idx_ensembl_GRCh38_cdna_ncrna_v99_noalt_k31`
+
+* running `salmon quant` will generate a separate quantification directory for each sample in the specified output directory
+
+* here is an example bash script to run Salmon for alignment and quantification:
+
+```{r code = readLines("./Shell_scripts/run_salmon_training.sh"), eval=F}
+```
+
+**some explanation**
+
+* the script assumes that the `salmon` command is known
+
+* similarly to `run_fastqc_training.sh` the code loops over all FASTQ files
+* `find` find all FASTQ files (pathnames) with read 1 of the paired reads (i.e. files ending with `1.fastq.gz`), saved in variable `R1`
+* `1.fastq.gz` in `$R1` is replaced by `2.fastq.gz` to get the path of the FASTQ file with the corresponding read 2 (of the same sample)
+* `sed 's/SEARCH/REPLACE/'` search and replace strings
+* `basename` strip directory and suffix from filenames, e.g. `basename /path/to/dir/filename.txt .txt` gives `filename`
+* here, each Salmon output directory will be named after the filename of the input FASTQ file
+
+
+***
+
+**Task:** run Salmon on sub-sampled FASTQ files with 100K reads: `bash run_salmon_training.sh`
+
+***
+
+* note, it is recommended to use the decoy-aware Salmon index
+* simply not used during the training since the total index files are (currently) rather larger (18GB)
+
+* the folder `./Salmon_mapping/Salmon_quant_110_ensembl_v99_noalt_decoy_k31_all_reads/` contains the Salmon quantification results, where all reads and the decoy-aware index were used
+* **we will import these transcript-level quantifications into R for our analyses**
+
+# Import quantifications
+
+* import transcript-level estimates from Salmon into R
+
+* two R packages facilitate this task:
+  + [tximport](https://bioconductor.org/packages/release/bioc/html/tximport.html)
+  + [tximeta](https://www.bioconductor.org/packages/release/bioc/html/tximeta.html)
+  
+* tximeta extends tximport: automatic addition of annotation metadata for commonly used transcriptomes
+* also imports more metadata of the mapping and quantification process
+
+* relatively new development and there might be some changes in future versions
+
+* here, we show how to use both packages
+
+* later we want to perform gene-level analysis (differential gene expression, as compared to e.g. differential transcript usage)
+* hence, need to summarise transcript-level abundances to the gene-level
+* requires a mapping of transcripts to corresponding genes
+
+***
+
+* first things first
+* analysis in R usually starts with reading a table containing information about individual samples:
+
+```{r samples_info, cache=FALSE}
+
+samples_meta <- fread(samples_info_file, sep = '\t')
+samples_meta %>% DT::datatable(caption="Samples overview", escape=F, rownames = F)
+```
+
+* add location of Salmon quantification folders (each sample with its own folder):
+
+```{r samples_info_2}
+
+quant_dirs <- list.dirs(salmon_quant_dir, full.names = TRUE, recursive = FALSE)
+quant_dirs_short <- list.dirs(salmon_quant_dir, full.names = FALSE, recursive = FALSE)
+quant_dirs_table <- data.table(sample = quant_dirs_short, path = quant_dirs)
+samples_meta <- merge(samples_meta, quant_dirs_table, by = "sample")
+```
+
+## tximport
+
+* here, we extract gene information from the headers of the transcript sequences used as a reference for Salmon
+* the fields in the header are delimited by spaces, beware of spaces in the gene description part
+
+* here is an example header of one transcript of GAPDH:
+
+```{r transcript_seq_header_example, eval=FALSE}
+
+>ENST00000396856.5 cdna chromosome:GRCh38:12:6534532:6538340:1 gene:ENSG00000111640.15 gene_biotype:protein_coding transcript_biotype:protein_coding gene_symbol:GAPDH description:glyceraldehyde-3-phosphate dehydrogenase [Source:HGNC Symbol;Acc:HGNC:4141]
+```
+
+* the script `extract_gene_mapping_training.sh` can be used to parse the transcript to gene information into a TAB-delimited text file:
+
+```{r code = readLines("./Shell_scripts/extract_gene_mapping_training.sh"), eval=F}
+```
+
+* the output of this script, the transcript to gene mapping table, is in the training material: `./Reference_training/ensembl_GRCh38_v98_cdna_ncrna_v99_noalt_gene_map.txt`
+
+* read transcript to gene mapping table:
+
+```{r t2g_annotation}
+
+t2g <- fread(t2g_file, header=F, sep = '\t')
+setnames(t2g, c("target_id", "seqtype", "location", "ens_gene", "gene_type", "tx_type", "ext_gene", "desc"))
+
+# remove version number from ensembl gene IDs
+t2g <- t2g[, ens_gene := gsub('\\..*', '', ens_gene, perl = T)]
+
+# remove duplicates identified by Salmon
+salmon_duplicates <- fread(salmon_duplicates_file)
+t2g <- t2g[!(target_id %in% salmon_duplicates[, DuplicateRef]), ]
+
+# unique ensembl gene IDs
+t2g_genes <- unique(t2g, by = "ens_gene")
+```
+
+* `t2g` is used to summarise Salmon transcript abundances at the gene level (ensembl transcript and gene IDs columns)
+* `quant.sf` is the main quantification file produced by Salmon for every sample
+
+```{r run_tximport}
+
+files_tximport <- paste0(samples_meta[, path], "/", "quant.sf")
+names(files_tximport) <- samples_meta[, sample] ## names of individual Salmon quant folders
+
+txi <- tximport(files_tximport, type = "salmon", 
+                tx2gene = t2g[, .(target_id, ens_gene)], 
+                dropInfReps = TRUE)
+```
+
+## tximeta
+
+* tximeta makes use of a GTF (Gene Transfer Format) gene annotation file
+* here, we link the transcriptome of the Salmon index to a locally saved GTF file from ensembl
+* note, that it is recommended to specify a remote GTF source instead
+* see the [tximeta vignette](https://www.bioconductor.org/packages/release/bioc/vignettes/tximeta/inst/doc/tximeta.html)
+
+* however, if additional transcripts were added to the standard set of transcripts (e.g. ERCC sequences), those need to be manually added to the standard GTF file
+
+* here, we make use of so called *linked transcriptomes*, where standard (*known*) transcriptomes have been modified
+* remember, that we filtered the standard set of transcripts by removing alternative sequences
+ 
+
+```{r get_ensembl_GTF, eval=FALSE}
+
+wget ftp://ftp.ensembl.org/pub/release-99/gtf/homo_sapiens/Homo_sapiens.GRCh38.99.gtf.gz
+```
+
+* this annotation file is already available in the training material folder `Reference_training`
+* the code below demonstrates how to set up tximeta and creates relevant files in the tximeta cache folder
+* no need to run this code chunk as part of the training
+ 
+```{r makeLinkedTxome, eval=FALSE}
+
+setTximetaBFC(dir = tximeta_cache_folder)
+
+makeLinkedTxome(indexDir = salmon_index,
+                source = "Ensembl",
+                organism = "Homo sapiens",
+                release = "99",
+                genome = "GRCh38",
+                fasta = salmon_fasta_input,
+                gtf = gtf_file,
+                jsonFile = jsonFile)
+
+## tximeta expects 2 columns: files and names
+samples_meta <- samples_meta[, files := paste0(samples_meta[, path], "/", "quant.sf")]
+samples_meta <- samples_meta[, names := sample]
+
+## import data for the first time to generate metadata 
+se <- tximeta(samples_meta, type = "salmon")
+```
+
+* import Salmon data and use cached version (`tximeta_cache_folder`) of the metadata and transcript ranges
+
+```{r run_tximeta}
+
+## workaround for Windows:
+## dir.create("C:/Users/YOUR_USERNAME/AppData/Local/tximeta/tximeta/Cache", recursive=TRUE)
+
+###### usually you run this code block, making use of tximeta cache
+# setTximetaBFC(dir = tximeta_cache_folder)
+# 
+# ## tximeta expects 2 columns: 'files' and 'names'
+# samples_meta <- samples_meta[, files := paste0(samples_meta[, path], "/", "quant.sf")]
+# samples_meta <- samples_meta[, names := sample]
+# ## remove 'path' column
+# samples_meta <- samples_meta[, path := NULL]
+# 
+# se <- tximeta(samples_meta, type = "salmon")
+# se
+# 
+# # save 'se' object for laoding later to avoid usage of larger sqlite database on github
+# saveRDS(se, se_file, compress = TRUE)
+#######
+
+se <- readRDS(se_file)
+se
+```
+
+* summarise transcript-level quantifications to the gene-level
+* with tximeta, the transcript to gene mapping table is automatically created based on the metadata stored within the `se` object
+
+```{r summarise_to_gene}
+
+gse <- summarizeToGene(se)
+gse
+colData(gse)
+```
+
+***
+
+* we should have the same information obtained via tximport and tximeta:
+
+```{r check_tximport_vs_tximeta}
+
+# check genes
+all.equal(rownames(txi$counts), rownames(gse))
+
+all.equal(assays(gse)[["counts"]], txi$counts)
+all.equal(assays(gse)[["abundance"]], txi$abundance)
+all.equal(assays(gse)[["length"]], txi$length)
+```
+
+
+
+# Quality control
+
+* one advantage of using tximeta is that metadata from Salmon are also automatically imported
+* allows to quickly check a bunch of overall QC metrics
+
+
+```{r extract_quantInfo}
+
+quant_meta <- metadata(gse)[["quantInfo"]]
+                            
+quant_meta_dt <- 
+  data.table(
+    sample = colData(gse)$sample,
+    name = colData(gse)$name,
+    type = colData(gse)$type,
+    sex = colData(gse)$sex,
+    lib = quant_meta$library_types,
+    num_proc = quant_meta$num_processed,
+    num_map = quant_meta$num_mapped,
+    pct_map = round(quant_meta$percent_mapped, 2),
+    pct_decoy = round(100 * quant_meta$num_decoy_fragments / quant_meta$num_processed, 2),
+    pct_filt = round(100 * quant_meta$num_fragments_filtered_vm / quant_meta$num_processed, 2),
+    pct_dovetail = round(100 * quant_meta$num_dovetail_fragments / quant_meta$num_processed, 2))
+```
+
+* the code below is a bit cumbersome, but it allows you to have buttons to quickly copy table content
+* more information about the useful [DT package](https://rstudio.github.io/DT/)
+
+```{r quantInfo_table, cache=F}
+
+quant_meta_dt %>% 
+  DT::datatable(caption = "Salmon quantInfo overview", 
+                escape = F, 
+                rownames = F, 
+                extensions = 'Buttons', 
+                options = list(dom = 'Blfrtip', 
+                               buttons = list('colvis', 
+                                              list(extend = 'copy', exportOptions = list(columns=':visible')),
+                                              list(extend = 'csv', exportOptions = list(columns=':visible')),
+                                              list(extend = 'excel', exportOptions = list(columns=':visible'))))) %>%
+  formatCurrency(c("num_proc", "num_map"), digits=0, currency='')
+```
+
+*** 
+
+* lib: fragement library type, see an explanation [here](https://salmon.readthedocs.io/en/latest/library_type.html)
+
+* num_proc: number of fragments (paired reads) analysed
+
+* num_map: number of mapped fragments
+
+* pct_map: percentage of mapped fragments
+
+* pct_filt: percentage of fragments that had a mapping to the transcriptome, but which were discarded because none of the mappings for the fragments exceeded the minimum selective alignment score
+
+* pct_decoy: percentage of fragments that were discarded from quantification because they best-aligned to a decoy target rather than a valid transcript
+
+* pct_dovetail: percentage of fragments that have only dovetailing mappings, considered as discordant and discarded by default, see an explaination of [dovetail](http://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#bowtie2-options-dovetail)
+
+***
+
+## Overview plots
+
+* graph the Salmon metrics from above
+* future versions of tximeta might facilitate such plots as mentioned in the Next steps of the [tximeta vignette](https://www.bioconductor.org/packages/release/bioc/vignettes/tximeta/inst/doc/tximeta.html#next_steps)
+* if you have many samples it is probably better to use boxplots/beeswarm plots  instead of barplots
+
+
+```{r overview_plots_1, fig.width=9, fig.height=3}
+
+plot_data_1 <- melt(quant_meta_dt, 
+                  id.vars = c("name", "type", "sex"), 
+                  measure.vars = c("num_proc", "num_map"))
+
+p <- ggplot(plot_data_1, aes(x = name, y = value))
+p <- p + geom_bar(stat="identity", position="dodge")
+p <- p + facet_wrap(~variable, scales = "fixed", ncol=2)
+p
+```
+
+
+* having used the full genome as decoy allows you to check how many reads were discarded because they map better to a decoy sequence
+* may give you and indication if you have many reads from intronic or intergenic regions
+
+
+```{r overview_plots_2, fig.width=9, fig.height=5}
+
+plot_data_2 <- melt(quant_meta_dt, 
+                  id.vars = c("name", "type", "sex"), 
+                  measure.vars = c("pct_map", "pct_decoy", "pct_filt", "pct_dovetail"))
+
+p <- ggplot(plot_data_2, aes(x = name, y = value))
+p <- p + geom_bar(stat="identity", position="dodge")
+p <- p + facet_wrap(~variable, scales = "free_y", ncol=2)
+p <- p + geom_text(aes(label = value), position=position_dodge(width = 0.9), vjust = -0.2, size = 2)
+p
+```
+
+
+## Gender check
+
+* sample swaps can happen
+* if you have multiple genders, one way to quickly double check the gender identity is by looking at the expression of XIST against some Y-chromosomal genes
+
+*  X-inactive specific transcript (XIST) is involved in the X-chromosome inactivation process in mammalian females and is expressed from the inactive X chromosome
+* here, two female samples have lower expression of XIST, indicating a potential erosion of X chromosome
+
+```{r XIST_vs_Y_expression, fig.width=5, fig.height=3.5}
+
+dds <- DESeqDataSet(gse, ~1)
+dds <- estimateSizeFactors(dds)
+
+genes_x <- c("XIST")
+genes_y <- c("USP9Y", "UTY", "NLGN4Y", "RPS4Y1", "TXLNGY")
+
+genes_x <- t2g_genes[ext_gene %in% genes_x, ens_gene]
+genes_y <- t2g_genes[ext_gene %in% genes_y, ens_gene]
+
+counts_x <- counts(dds, normalized = TRUE)[genes_x,	]
+counts_y <- counts(dds, normalized = TRUE)[genes_y,	]
+counts_y <- apply(counts_y, 2, sum)
+
+plot_data <- data.table(sample = names(counts_x), 
+                        XIST_logcounts = log2(counts_x), 
+                        Y_logcounts = log2(counts_y))
+plot_data <- merge(plot_data, samples_meta, by = "sample")
+
+p <- ggplot(data = plot_data, aes(x = XIST_logcounts, y = Y_logcounts, colour = sex))
+p <- p + geom_point(size = 2, alpha = 0.7)
+p
+```
+
+* note, the best check for sample identity is possible if samples were previously genotyped (e.g. by genotyping arrays)
+* variants can be identified from the RNA-seq data and compared to genotyping data
+
+## PCA
+
+* a common way to globally visualise sample gene expression profiles is by using dimensionality reduction techniques such as principal components analysis (PCA)
+* it also allows to check which samples are similar to each other and spot individual outliers in the dataset
+
+* DESeq2 comes with a basic function (`plotPCA`, which calls `prcomp`) to plot the first two principal components (PC1 and PC2), which explain most of the variance (differences) in the gene expression data
+* the percentage of the total variance that is explained by each PC (direction) is included in the axes labels
+* by default it uses 500 genes with the highest variance across samples
+
+* for more sophisticated PCA you can try, for example, the Bioconductor package [pcaExplorer](http://bioconductor.org/packages/release/bioc/html/pcaExplorer.html)
+
+* examples of other dimensionality reduction techniques are multidimensional scaling (MDS), and especially for single-cell RNA-seq, uniform manifold approximation and projection (UMAP) and t-distributed stochastic neighbor embedding (t-SNE)
+
+* note, for exploratory analysis, such as PCA, it is recommended to transform the counts to stabilize the variance across the mean
+* so that genes with low or high counts do not overly contribute to sample-sample distances
+* DESeq2 offers the variance stabilizing transformation (`vst`) and regularized-logarithm transformation (`rlog`)
+
+
+```{r PCA_plots, fig.width=5, fig.height=3.5}
+
+vsd <- vst(dds)
+
+DESeq2::plotPCA(vsd, intgroup = c("type"))
+DESeq2::plotPCA(vsd, intgroup = c("sex"))
+DESeq2::plotPCA(vsd, intgroup = c("name"))
+```
+
+* for example, here, you can see that sample PD1 appears as an outlier
+* you can also see that sex is a factor driving sample separation along PC2
+
+* further evaluation showed that sample PD1 shows residual pluripotency, e.g. indicated by increased expression of POU5F1
+* PD1 was excluded from further analyses
+
+```{r exclude_sample}
+
+gse <- gse[, samples_meta[name != "PD1", sample]]
+```
+
+
+
+# Differential expression analysis
+
+* here, we use the Bioconductor package [DESeq2](https://www.bioconductor.org/packages/release/bioc/html/DESeq2.html)
+
+* other popular methods to perform differential gene expression analysis:  
+  + [edgeR](https://www.bioconductor.org/packages/release/bioc/html/edgeR.html) 
+  + [limma with the voom method](https://www.bioconductor.org/packages/release/bioc/html/limma.html)
+
+* first, we construct a DESeqDataSet object from the imported and gene-level summarised data (`gse`), and using only the protein-coding genes
+
+```{r DESeqDataSet_setup}
+
+## select protein-coding genes
+gene_info <- as.data.frame(rowData(gse))
+gse <- gse[gene_info$gene_biotype == "protein_coding", ]
+
+## correct design formula will be assigned later
+dds <- DESeqDataSet(gse, design = ~1)
+
+## the equivalent command for tximport data import:
+# stopifnot(all.equal(colnames(txi$counts), samples_meta[, sample]))
+# dds <- DESeqDataSetFromTximport(txi, colData = samples_meta, design = ~1)
+```
+
+* it is common to exclude lowly-expressed genes
+* there are many genes (rows) with no or very few counts, with a low signal-to-noise ratio (not informative)
+
+* here, keep genes with at least 5 counts
+
+```{r dds_pre_filter}
+
+# at least 5 counts across all samples
+expression_cutoff <- 5
+
+## estimate size factors to account for sequencing depth
+## note, adjustment for differing library sizes does not depend on the design formula
+dds <- estimateSizeFactors(dds)
+
+cat("Number of lowly-expressed genes excluded: ",
+    sum(rowSums(counts(dds, normalized = TRUE)) < expression_cutoff), fill=T)
+
+cat("Number of genes before filtering: ", nrow(dds), fill=T)
+dds <- dds[rowSums(counts(dds, normalized = TRUE)) >= expression_cutoff, ]
+cat("Number of genes after filtering: ", nrow(dds), fill=T)
+```
+
+## Find DEGs
+
+* need to specify a *design formula* describing how counts depend on experimental variables
+* the design formula tells which columns in the sample information table (`colData`) specify the experimental design and how these factors should be used in the analysis
+
+* the simplest design formula would be `~ type` for the effect of disease (comparing controls vs PD cases)
+* `type` is a column in colData(dds)
+* here, we also include `sex` as an additional covariate: test for the effect of disease (type) whilst controlling for the effect of different sex
+
+* note that DESeq2 uses the same formula notation as the `lm` function of base R to fit linear models
+* a formula starts with a tilde `~` followed by the variables with plus signs between them
+
+* variables for experimental design are encoded as factors
+* it recommended to use the reference level (control/untreated samples) as first level (here, `CT`)
+
+
+```{r dds_design}
+
+dds$type <- factor(dds$type, levels = c("CT", "PD"))
+dds$sex <- factor(dds$sex)
+
+d <- "~ sex + type"
+design(dds) <- formula(d)
+```
+
+* run the standard differential expression analysis by calling `DESeq`:
+
+```{r run_DESeq}
+
+dds <- DESeq(dds)
+```
+
+* get the results table via `results()` for a pecified a significance threshold
+* the comparison we are interested in is specified by the `contrast` argument
+
+```{r get_results}
+
+# adjusted p-value threshold (padj), 5% significance level, FDR level of 5%
+alpha_cutoff <- 0.05
+
+res <- results(dds, alpha = alpha_cutoff, contrast = c("type", "PD", "CT"))
+## add shrunken LFCs to results table, "apeglm", "ashr" require extra packages
+## apeglm is the new default
+res <- lfcShrink(dds, contrast = c("type", "PD", "CT"), res = res, type = "normal")
+
+summary(res)
+```
+
+* the object containing the results (`res`) contains a number of columns:
+
+```{r results_columns}
+
+mcols(res, use.names = TRUE)
+```
+
+* baseMean: average of the (normalised) count values, divided by the size factors, taken over *all* samples
+* log2FoldChange: effect size estimate on log2 scale
+* log2 FC = 1 means the gene’s expression is increased by a factor of 2
+* log2 FC = -1 means the gene’s expression is decreased by a factor of 2 (multiplicative change of 0.5)
+
+## DEGs table
+
+* it is useful to report the list of DEGs based on a significance threshold
+* again we use `DT::datatable` to have a table we can search, sort and copy
+
+```{r deg_table, cache=F}
+
+res_dt <- as.data.table(res)
+res_dt <- res_dt[, ens_gene := rownames(res)]
+res_dt <- res_dt[padj < alpha_cutoff, ]
+res_dt <- res_dt[, c("lfcSE", "stat") := NULL]
+res_dt <- merge(res_dt, t2g_genes[, .(ens_gene, ext_gene, desc)], by = "ens_gene")
+res_dt <- res_dt[, c("log2FoldChange", "pvalue", "padj") := 
+                   list(signif(log2FoldChange, 3), signif(pvalue, 3), signif(padj, 3))]
+res_dt <- res_dt[, baseMean := round(baseMean, digits=1)]
+setcolorder(res_dt, c("ens_gene", "ext_gene", "log2FoldChange", "pvalue", "padj", "baseMean", "desc"))
+setnames(res_dt, "desc", "______________gene_description______________")
+setnames(res_dt, "log2FoldChange", "log2FC")
+setnames(res_dt, "padj", "pval_adj")
+res_dt <- res_dt[order(pval_adj)]
+
+res_dt %>% 
+  DT::datatable(caption = "DESeq PD vs CT", 
+                escape = F, 
+                rownames = F, 
+                extensions = 'Buttons', 
+                options = list(dom = 'Blfrtip', 
+                               buttons = list('colvis', 
+                                              list(extend = 'copy', exportOptions = list(columns=':visible')),
+                                              list(extend = 'csv', exportOptions = list(columns=':visible')),
+                                              list(extend = 'excel', exportOptions = list(columns=':visible')))))
+```
+
+## PCA based on DEGs
+
+* performing PCA on the DEGs should separate the samples by type:
+
+```{r PCA_using_DEGs, fig.width=5, fig.height=3.5}
+
+vsd <- vst(dds)
+vsd_subset <- vsd[(rownames(vsd) %in% res_dt[, ens_gene]), ]
+
+plotPCA(vsd_subset, intgroup = c("type"))
+```
+
+## Pot top DEGs
+
+* check the expression levels of the top DEGs
+* DESeq2 provides a simple function `plotCounts` for single genes:
+
+```{r plot_DEGs, fig.width=4, fig.height=4}
+
+plotCounts(dds, gene = "ENSG00000164692", intgroup = c("type"))
+```
+
+* plot top 10 down-regulated genes
+* showing gene symbols instead of ensembl IDs (gene symbols shown alphabetically)
+
+```{r top_10_down, fig.width=9, fig.height=5}
+
+res_dt <- res_dt[order(pval_adj)]
+plot_genes <- res_dt[log2FC < 0, ens_gene][1:10]
+
+counts_dt <- data.table(log2(counts(dds[plot_genes, ], normalized = TRUE) + 1), 
+                        keep.rownames = TRUE)
+setnames(counts_dt, "rn", "ens_gene")
+counts_dt <- melt(counts_dt, id.vars = "ens_gene")
+counts_dt <- merge(counts_dt, samples_meta[, .(sample, type, sex)],
+                   by.x = "variable", by.y = "sample")
+counts_dt <- merge(counts_dt, t2g_genes[, .(ens_gene, ext_gene)], 
+                   by = "ens_gene")
+
+p <- ggplot(data = counts_dt, aes(x = type, y = value, color = sex))
+p <- p + geom_violin(aes(group = type), alpha = 0, colour = "gray60", scale = "width")
+p <- p + geom_point(position = position_jitterdodge(), size = 2, alpha=0.7)
+p <- p + facet_wrap(~ext_gene, scales = "free_y", ncol = 5)
+p <- p + xlab(NULL) + ylab("log2(normalised counts + 1)")
+p <- p + theme(legend.position="top")
+p
+
+```
+
+* and the top 10 up-regulated genes
+
+```{r top_10_up, fig.width=9, fig.height=5}
+
+plot_genes <- res_dt[log2FC > 0, ens_gene][1:10]
+
+counts_dt <- data.table(log2(counts(dds[plot_genes, ], normalized = TRUE) + 1), 
+                        keep.rownames = TRUE)
+setnames(counts_dt, "rn", "ens_gene")
+counts_dt <- melt(counts_dt, id.vars = "ens_gene")
+counts_dt <- merge(counts_dt, samples_meta[, .(sample, type, sex)],
+                   by.x = "variable", by.y = "sample")
+counts_dt <- merge(counts_dt, t2g_genes[, .(ens_gene, ext_gene)], 
+                   by = "ens_gene")
+
+p <- ggplot(data = counts_dt, aes(x = type, y = value, color = sex))
+p <- p + geom_violin(aes(group = type), alpha = 0, colour = "gray60", scale = "width")
+p <- p + geom_point(position = position_jitterdodge(), size = 2, alpha=0.7)
+p <- p + facet_wrap(~ext_gene, scales = "free_y", ncol = 5)
+p <- p + xlab(NULL) + ylab("log2(normalised counts + 1)")
+p <- p + theme(legend.position="top")
+p
+```
+
+***
+
+* another typical global visualisation is a *volcano plot*
+* log2 fold changes are plotted on the x-axis against log transformed adjusted p-values on the y-axis (i.e. effect size vs statistical signficance)
+* for advanced volcano plots see [EnhancedVolcano package](https://bioconductor.org/packages/release/bioc/html/EnhancedVolcano.html) 
+
+*** 
+
+* please see the [DESeq2 vignette](https://www.bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html) for more details about differential expression analysis using DESeq2
+
+***
+
+
+# SessionInfo
+
+```{r session_info, cache=F}
+
+sessionInfo()
+## devtools::session_info()
+```

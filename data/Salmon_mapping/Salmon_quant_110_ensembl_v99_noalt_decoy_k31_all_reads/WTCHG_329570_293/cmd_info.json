@@ -1,0 +1,10 @@
+{
+    "salmon_version": "1.1.0",
+    "index": "/scratch/c.mpmfw/Training/Reference_ensembl_v99/salmon_idx_ensembl_GRCh38_cdna_ncrna_v99_noalt_decoy_k31",
+    "libType": "A",
+    "mates1": "/gluster/dri02/rdscw/users/frankw/projects/PD_astro/Fastq/WTCHG_329570_293_1.fastq.gz",
+    "mates2": "/gluster/dri02/rdscw/users/frankw/projects/PD_astro/Fastq/WTCHG_329570_293_2.fastq.gz",
+    "output": "/scratch/c.mpmfw/Training/Salmon_mapping/Salmon_110_ensembl_v99_noalt_decoy_k31/WTCHG_329570_293",
+    "threads": "40",
+    "auxDir": "aux_info"
+}

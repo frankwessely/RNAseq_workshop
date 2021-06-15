@@ -1,0 +1,22 @@
+{
+    "read_files": "[ /gluster/dri02/rdscw/users/frankw/projects/PD_astro/Fastq/WTCHG_329570_288_1.fastq.gz, /gluster/dri02/rdscw/users/frankw/projects/PD_astro/Fastq/WTCHG_329570_288_2.fastq.gz]",
+    "expected_format": "ISR",
+    "compatible_fragment_ratio": 1.0,
+    "num_compatible_fragments": 52165528,
+    "num_assigned_fragments": 52165528,
+    "num_frags_with_concordant_consistent_mappings": 50674080,
+    "num_frags_with_inconsistent_or_orphan_mappings": 1743242,
+    "strand_mapping_bias": 0.000004637457852168303,
+    "MSF": 0,
+    "OSF": 0,
+    "ISF": 235,
+    "MSR": 0,
+    "OSR": 0,
+    "ISR": 50674080,
+    "SF": 463166,
+    "SR": 1279841,
+    "MU": 0,
+    "OU": 0,
+    "IU": 0,
+    "U": 0
+}

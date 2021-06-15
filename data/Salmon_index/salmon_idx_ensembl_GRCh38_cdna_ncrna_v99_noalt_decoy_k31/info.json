@@ -1,0 +1,21 @@
+{
+    "index_version": 4,
+    "reference_gfa": [
+        "/scratch/c.mpmfw/Training/Reference_ensembl_v99/salmon_idx_ensembl_GRCh38_cdna_ncrna_v99_noalt_decoy_k31"
+    ],
+    "sampling_type": "dense",
+    "k": 31,
+    "num_kmers": 2665143411,
+    "num_contigs": 37224772,
+    "seq_length": 3781886571,
+    "have_ref_seq": true,
+    "have_edge_vec": false,
+    "SeqHash": "7fcbc98244a03c35e1259f5384b40cdb076701575aa413508c880d45e6357124",
+    "NameHash": "4739967116ac4975b92e292fcc4883bb0fb244efa9e1721a92af6bdf02084779",
+    "SeqHash512": "28ccdfea30f99bd0d22339da7c71980a0c0228e552a9f3b8db0224ea58e45da3a8665da059d3a98b7a0366e23a1754cbfeb135dd5f51d53cd063345c0c6c4489",
+    "NameHash512": "fb5a39c352d93b8a2bb9ca78b971ef9d6c42cc1e4ad81719cc37bcd84fb66cfd191a3fc524132e8739414a0679512ef89b0533dc9303ac49f913c3835d57f5f1",
+    "DecoySeqHash": "6d5c78d0c202612d68fdce3fd52615b2afba101da6ce2f5c15e90943d54e64e9",
+    "DecoyNameHash": "01c56669eed27669376eefee85477e65d513bd953a64fd8ee76277dbdf8f47d4",
+    "num_decoys": 194,
+    "first_decoy_index": 225992
+}

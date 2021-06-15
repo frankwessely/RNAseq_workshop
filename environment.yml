@@ -1,0 +1,14 @@
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - r-base=4.0
+  - r-rmarkdown
+  - r-codetools
+  - r-data.table
+  - r-DT
+  - r-readr
+  - r-ggplot2
+  - bioconductor-tximport
+  - bioconductor-tximeta
+  - bioconductor-DESeq2

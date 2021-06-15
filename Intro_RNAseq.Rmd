@@ -136,7 +136,7 @@ library(SummarizedExperiment) # colData()
 ## cache = TRUE - cache results (in a folder) for future knits - set TRUE for running on local machine
 ## caching avoids re-running code if unchanged
 ## echo = TRUE  - display code in output document 
-knitr::opts_chunk$set(cache = FALSE, echo = TRUE)
+knitr::opts_chunk$set(cache = FALSE, echo = TRUE) # set cache = FALSE for mybinder
 
 ## white background theme for all ggplot2 plots
 theme_set(theme_bw())
@@ -267,7 +267,7 @@ wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR788/005/SRR7889835/SRR7889835_2.fastq
 
 * here is an example bash script to run FastQC for all FASTQ files in the input directory:
 
-```{r, code = readLines("./Shell_scripts/run_fastqc_training.sh"), eval=F}
+```{r, code = readLines("./shell_scripts/run_fastqc_training.sh"), eval=F}
 ```
 
 **some explanation**
@@ -318,7 +318,7 @@ check the contents of the output folder: `./FastQC/FastQC_output_100K`
 
 * here is an example bash script to run MultiQC summarising the FastQC results:
 
-```{r code = readLines("./Shell_scripts/run_multiqc_training.sh"), eval=F}
+```{r code = readLines("./shell_scripts/run_multiqc_training.sh"), eval=F}
 ```
 
 **some explanation**
@@ -520,7 +520,7 @@ salmon index \
 
 * here is an example bash script to run Salmon for alignment and quantification:
 
-```{r code = readLines("./Shell_scripts/run_salmon_training.sh"), eval=F}
+```{r code = readLines("./shell_scripts/run_salmon_training.sh"), eval=F}
 ```
 
 **some explanation**
@@ -601,7 +601,7 @@ samples_meta <- merge(samples_meta, quant_dirs_table, by = "sample")
 
 * the script `extract_gene_mapping_training.sh` can be used to parse the transcript to gene information into a TAB-delimited text file:
 
-```{r code = readLines("./Shell_scripts/extract_gene_mapping_training.sh"), eval=F}
+```{r code = readLines("./shell_scripts/extract_gene_mapping_training.sh"), eval=F}
 ```
 
 * the output of this script, the transcript to gene mapping table, is in the training material: `./Reference_training/ensembl_GRCh38_v98_cdna_ncrna_v99_noalt_gene_map.txt`

@@ -149,12 +149,13 @@ theme_set(theme_bw())
 
 ```{r training_files}
 
-###### change accordingly ######
+###### change accordingly if run on local machine ######
 ## folder with training material
 # input_dir <- "/Users/USERNAME/Desktop/RNAseq_workshop/"
 # input_dir <- "C:/Users/USERNAME/Desktop/Training_RNAseq_part_1/"
 ## use data saved on github folder 'Data'
 input_dir <- "./data/"
+######
 
 ## samples metadata
 samples_info_file <- paste0(input_dir, 
@@ -196,8 +197,8 @@ tximeta_cache_folder <- paste0(input_dir,
 jsonFile <- paste0(tximeta_cache_folder, 
                    "/ensembl_v99_cdna_ncrna_noalt_decoy.json")
 
-## SummarizedExperiment file using tximeta for data import, will be loaded here instead of generated
-se_file <- paste0(input_dir, "se_object_from_tximeta.rds")
+## SummarizedExperiment file using tximeta for data import, will be loaded here instead of being generated
+gse_file <- paste0(input_dir, "gse_object_from_tximeta_import.rds")
 ```
 
 
@@ -697,14 +698,6 @@ se <- tximeta(samples_meta, type = "salmon")
 # 
 # se <- tximeta(samples_meta, type = "salmon")
 # se
-# 
-# # save 'se' object for laoding later to avoid usage of larger sqlite database on github
-# saveRDS(se, se_file, compress = TRUE)
-#######
-
-## read object as computed from the code block above
-se <- readRDS(se_file)
-se
 ```
 
 * summarise transcript-level quantifications to the gene-level
@@ -712,14 +705,22 @@ se
 
 ```{r summarise_to_gene}
 
-gse <- summarizeToGene(se)
+###### usually run this line of code using the se generated above
+# gse <- summarizeToGene(se) ## makes use of local tximeta database, uses transcript-to-gene mapping from database
+## save 'gse' object for loading as part of workshop to avoid usage of larger sqlite database on github
+# saveRDS(gse, gse_file, compress = TRUE)
+#######
+
+## read gene summarized object as computed from the code block above
+gse <- readRDS(gse_file)
+
 gse
 colData(gse)
 ```
 
 ***
 
-* note, we should have the same information obtained via tximport and tximeta:
+* note, we should have the same information obtained via tximport or tximeta:
 
 ```{r check_tximport_vs_tximeta}
 

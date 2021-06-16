@@ -15,6 +15,7 @@ dependencies:
   - bioconductor-EnhancedVolcano
   - bioconductor-clusterProfiler
   - bioconductor-org.Hs.eg.db
+  - bioconductor-DO.db
   - fastqc
   - multiqc
   - salmon

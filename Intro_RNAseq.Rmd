@@ -1141,6 +1141,7 @@ EnhancedVolcano(res_dt_all,
 * here, use package clusterProfiler with all DEGs as input
 * background (gene universe): all genes not filtered by DESeq2
 
+
 ```{r clusterProfiler}
 
 ## background of expressed genes

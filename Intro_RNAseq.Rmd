@@ -143,7 +143,7 @@ library(DESeq2) # differential expression analysis
 library(genefilter) # rowVars(), imported by DESeq2
 library(SummarizedExperiment) # colData()
 library(EnhancedVolcano) # pretty volcano plots
-library(clusterProfiler) # GO analysis
+## library(clusterProfiler) # GO analysis, issue with Do.db package version, see workaround later
 library(org.Hs.eg.db) # annotation of human genes in many formats
 
 ## cache = TRUE - cache results (in a folder) for future knits - set TRUE for running on local machine
@@ -711,6 +711,10 @@ all.equal(rownames(txi$counts), rownames(gse))
 all.equal(assays(gse)[["counts"]], txi$counts)
 all.equal(assays(gse)[["abundance"]], txi$abundance)
 all.equal(assays(gse)[["length"]], txi$length)
+
+## alternative syntax to get counts:
+## assay(gse, "counts")
+## all.equal(assays(gse)[["counts"]], assay(gse, "counts"))
 ```
 
 
@@ -1141,15 +1145,37 @@ EnhancedVolcano(res_dt_all,
 * here, use package clusterProfiler with all DEGs as input
 * background (gene universe): all genes not filtered by DESeq2
 
+***
+
+* note, there is an issue with loading clusterProfiler in the Binder environment:
+
+>Error: package 'DO.db' was installed before R 4.0.0: please re-install it
+
+* force the installation of the `DO.db` package, after that clusterProfiler should work
+* **however, R session errors come up in Binder running `enrichGO()`, so probably something for you to explore on your local machines**
+* please see the HTML output file for table and plot from clusterProfiler
+
+
+```{r clusterProfiler_workaround_binder}
+
+# Error: package or namespace load failed for 'clusterProfiler':
+#  package 'DO.db' was installed before R 4.0.0: please re-install it
+
+# BiocManager::install("DO.db", force = TRUE)
+# library(clusterProfiler)
+```
+
 
 ```{r clusterProfiler}
+
+library(clusterProfiler)
 
 ## background of expressed genes
 genes_universe <- res_dt_all[!(is.na(padj)), ens_gene]
 ## use all DEGs, could be filtered by direction (up vs down) or minimum absolute log2FC
 genes_test <- res_dt$ens_gene
 
-## takes a minute or so to run
+## takes a minute or two to run
 go_enrich <-
   enrichGO(
     gene = genes_test,

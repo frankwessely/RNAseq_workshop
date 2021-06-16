@@ -12,6 +12,7 @@ dependencies:
   - bioconductor-tximport
   - bioconductor-tximeta
   - bioconductor-DESeq2
+  - bioconductor-EnhancedVolcano
   - fastqc
   - multiqc
   - salmon

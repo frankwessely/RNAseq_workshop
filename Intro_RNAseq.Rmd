@@ -20,17 +20,17 @@ knit: (function(input_file, encoding) {
 
 # Notes
 
-* this document is intended to give an introduction to the first main steps of bulk RNA-seq analysis
+* this document is intended to give a practical introduction to the first main steps of bulk RNA-seq analysis
 * starting from FASTQ files containing the sequencing reads from a sequencing machine
 * the first steps using raw data are usually performed by external tools outside R/RStudio
-* we will showcase how to run some of the external tools
+* we will showcase how to run some of the external tools and you can run them too in the interactive live environment
 * analysis is usually performed within R *after* the alignment of reads and generation of counts for each sample, which will be imported into R
 
 ***
 
-* the first part of this workshop will be less interactive, where we highlight the main steps outside R
-* interested users are highly encouraged to install and run those tools on their local machines with the help of the material provided in this workshop
-* later on in the breakout sessions we will make use of this document in a more interactive way and run the code chunks as we go along
+* in the first part of this workshop we highlight the main steps outside R
+* the Binder environment allows you to easily try those tools on a subset of the input data
+* later on we will make use of this document in RStudio and run the individual code chunks as we go along
 
 ***
 
@@ -52,8 +52,8 @@ knit: (function(input_file, encoding) {
 1. using it via Binder
 
 * this document can be run run and explored within the RStudio environment provided by [mybinder.org](https://mybinder.org)
-* it means that you can interact with this document totally independent of your local R/RStudio setup using the remote RStudio environment via your web browser
-* all R package dependencies should be taken care of
+* it means that you can interact with this document totally independent of your local R/RStudio setup using the remote RStudio environment in the cloud via your web browser
+* all R package dependencies should be taken care of and external tools like FastQC are available
 * note, launching RStudio and running the code via mybinder.org can be a bit slow or the service could go down temporarily
 
 2. using it locally
@@ -86,14 +86,14 @@ dir.create(paste("C:/Users/", Sys.getenv("USERNAME"), "/AppData/Local/tximeta/tx
 
 * we mention and showcase a few external tools
 * those are often run on dedicated external computer clusters for larger datasets making use of computational resources not available on standard laptops or desktop machines
-* it is not necessary to run those tools during the training session
-* however, it would be good to give it a go on your machines (potentially on a smaller subset of the data) as a follow-up to this workshop
+* you can also run them within the interactive Binder session
+* for the future, it would be good to install those on your machines as a follow-up to this workshop
 
 ***
 
 * external tools are often run via bash shell scripts (`.sh` files) provided as part of the training material
 * in a shell (Terminal on MacOS), a command line interface, they are run by typing `bash script_name.sh`
-* you can also use the `Terminal` within RStudio itself (tab `Terminal` in the bottom left panel)
+* you can use the `Terminal` within RStudio itself (tab `Terminal` in the bottom left panel)
 * some explanation of the external code is provided here to help you understand the code in the `.sh` files
 * also this online tool might help to understand command line/shell script code: [explainshell.com](https://explainshell.com)
 
@@ -142,6 +142,7 @@ library(tximeta) # extends tximport
 library(DESeq2) # differential expression analysis
 library(genefilter) # rowVars(), imported by DESeq2
 library(SummarizedExperiment) # colData()
+library(EnhancedVolcano) # pretty volcano plots
 
 ## cache = TRUE - cache results (in a folder) for future knits - set TRUE for running on local machine
 ## caching avoids re-running code if unchanged
@@ -339,6 +340,7 @@ check the contents of the output folder `output_training`
 
 * multiple QC modules from many different tools can be combined into one large report
 * here is an [example report for RNA-seq data](https://multiqc.info/examples/rna-seq/multiqc_report.html) combining results from multiple RNA-seq tools
+* the training material contains the MultiQC report of FastQC results based on all reads: `/data/MultiQC_reports/fastqc_report_all_reads.html`
 
 
 ## Optional steps
@@ -500,15 +502,10 @@ salmon index \
 
 ## Salmon quant
 
-* now that we have an index, let's align our 100,000 reads and quantify!
+* now that we have an index, let's align our 100,000 reads and quantify
 * i.e. run Salmon to estimate transcript-level abundances using the transcriptome index
-
-* for this training, we use the Salmon index *without* genome decoys
-* simply because it is smaller in size (< 1GB vs 18GB for the decoy-aware index)
-* the complete Salmon transcriptome index is part of the training material: `./Salmon_index/salmon_idx_ensembl_GRCh38_cdna_ncrna_v99_noalt_k31`
-
-* running `salmon quant` will generate a separate quantification directory for each sample in the specified output directory
-
+* note, for this training, we use a Salmon index *without* genome decoys and using only transcripts from chr10
+* running `salmon quant` will generate a separate directory for each sample in the specified output directory
 * here is an example bash script to run Salmon for alignment and quantification:
 
 ```{r code = readLines("./shell_scripts/run_salmon_training.sh"), eval=F}
@@ -517,7 +514,6 @@ salmon index \
 **some explanation**
 
 * the script assumes that the `salmon` command is known
-
 * similarly to `run_fastqc_training.sh` the code loops over all FASTQ files
 * `find` find all FASTQ files (pathnames) with read 1 of the paired reads (i.e. files ending with `1.fastq.gz`), saved in variable `R1`
 * `1.fastq.gz` in `$R1` is replaced by `2.fastq.gz` to get the path of the FASTQ file with the corresponding read 2 (of the same sample)
@@ -533,26 +529,21 @@ salmon index \
 ***
 
 * note, it is recommended to use the decoy-aware Salmon index
-* simply not used during the training since the total index files are (currently) rather larger (18GB)
+* simply not used during the training since the total index files are rather larger (18GB) (might be smaller in newer versions of Salmon)
+* the folder `data/Salmon_mapping/Salmon_quant_110_ensembl_v99_noalt_decoy_k31_all_reads/` contains the Salmon quantification results, where all reads and the complete decoy-aware index were used
+* we will import these transcript-level quantifications into R for our downstream analyses
 
-* the folder `./Salmon_mapping/Salmon_quant_110_ensembl_v99_noalt_decoy_k31_all_reads/` contains the Salmon quantification results, where all reads and the decoy-aware index were used
-* **we will import these transcript-level quantifications into R for our analyses**
 
 # Import quantifications
 
 * import transcript-level estimates from Salmon into R
-
-* two R packages facilitate this task:
+* two useful R packages facilitate this task:
   + [tximport](https://bioconductor.org/packages/release/bioc/html/tximport.html)
   + [tximeta](https://www.bioconductor.org/packages/release/bioc/html/tximeta.html)
   
 * tximeta extends tximport: automatic addition of annotation metadata for commonly used transcriptomes
 * also imports more metadata of the mapping and quantification process
-
-* relatively new development and there might be some changes in future versions
-
 * here, we show how to use both packages
-
 * later we want to perform gene-level analysis (differential gene expression, as compared to e.g. differential transcript usage)
 * hence, need to summarise transcript-level abundances to the gene-level
 * requires a mapping of transcripts to corresponding genes
@@ -582,7 +573,6 @@ samples_meta <- merge(samples_meta, quant_dirs_table, by = "sample")
 
 * here, we extract gene information from the headers of the transcript sequences used as a reference for Salmon
 * the fields in the header are delimited by spaces, beware of spaces in the gene description part
-
 * here is an example header of one transcript of GAPDH:
 
 ```{r transcript_seq_header_example, eval=FALSE}
@@ -595,8 +585,7 @@ samples_meta <- merge(samples_meta, quant_dirs_table, by = "sample")
 ```{r code = readLines("./shell_scripts/extract_gene_mapping_training.sh"), eval=F}
 ```
 
-* the output of this script, the transcript to gene mapping table, is in the training material: `./Reference_training/ensembl_GRCh38_v98_cdna_ncrna_v99_noalt_gene_map.txt`
-
+* the output of this script, the transcript to gene mapping table, is in the training material: `/data/Reference_training/ensembl_GRCh38_v98_cdna_ncrna_v99_noalt_gene_map.txt`
 * read transcript to gene mapping table:
 
 ```{r t2g_annotation}
@@ -634,9 +623,7 @@ txi <- tximport(files_tximport, type = "salmon",
 * here, we link the transcriptome of the Salmon index to a locally saved GTF file from ensembl
 * note, that it is recommended to specify a remote GTF source instead
 * see the [tximeta vignette](https://www.bioconductor.org/packages/release/bioc/vignettes/tximeta/inst/doc/tximeta.html)
-
 * however, if additional transcripts were added to the standard set of transcripts (e.g. ERCC sequences), those need to be manually added to the standard GTF file
-
 * here, we make use of so called *linked transcriptomes*, where standard (*known*) transcriptomes have been modified
 * remember, that we filtered the standard set of transcripts by removing alternative sequences
  
@@ -646,9 +633,9 @@ txi <- tximport(files_tximport, type = "salmon",
 wget ftp://ftp.ensembl.org/pub/release-99/gtf/homo_sapiens/Homo_sapiens.GRCh38.99.gtf.gz
 ```
 
-* this annotation file is already available in the training material folder `Reference_training`
+* this annotation file is already available in the training material folder `/data/Reference_training`
 * the code below demonstrates how to set up tximeta and creates relevant files in the tximeta cache folder
-* no need to run this code chunk as part of the training
+* **no need to run this code chunk as part of the training**
  
 ```{r makeLinkedTxome, eval=FALSE}
 
@@ -672,13 +659,14 @@ se <- tximeta(samples_meta, type = "salmon")
 ```
 
 * import Salmon data and use cached version (`tximeta_cache_folder`) of the metadata and transcript ranges
+* usually you run this code block, making use of the tximeta cache
+* not used during training, simply to avoid uploading a sqlite database
 
 ```{r run_tximeta}
 
 ## workaround for Windows:
 ## dir.create("C:/Users/YOUR_USERNAME/AppData/Local/tximeta/tximeta/Cache", recursive=TRUE)
 
-###### usually you run this code block, making use of tximeta cache, not used during workshop, simply to avoid uploading sqlite database
 # setTximetaBFC(dir = tximeta_cache_folder)
 # 
 # ## tximeta expects 2 columns: 'files' and 'names'
@@ -727,7 +715,7 @@ all.equal(assays(gse)[["length"]], txi$length)
 # Quality control
 
 * one advantage of using tximeta is that metadata from Salmon are also automatically imported
-* allows to quickly check a bunch of overall QC metrics
+* allows to quickly check a few overall QC metrics
 
 
 ```{r extract_quantInfo}
@@ -770,17 +758,11 @@ quant_meta_dt %>%
 *** 
 
 * lib: fragement library type, see an explanation [here](https://salmon.readthedocs.io/en/latest/library_type.html)
-
 * num_proc: number of fragments (paired reads) analysed
-
 * num_map: number of mapped fragments
-
 * pct_map: percentage of mapped fragments
-
 * pct_filt: percentage of fragments that had a mapping to the transcriptome, but which were discarded because none of the mappings for the fragments exceeded the minimum selective alignment score
-
 * pct_decoy: percentage of fragments that were discarded from quantification because they best-aligned to a decoy target rather than a valid transcript
-
 * pct_dovetail: percentage of fragments that have only dovetailing mappings, considered as discordant and discarded by default, see an explaination of [dovetail](http://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#bowtie2-options-dovetail)
 
 ***
@@ -788,8 +770,8 @@ quant_meta_dt %>%
 ## Overview plots
 
 * graph the Salmon metrics from above
-* future versions of tximeta might facilitate such plots as mentioned in the Next steps of the [tximeta vignette](https://www.bioconductor.org/packages/release/bioc/vignettes/tximeta/inst/doc/tximeta.html#next_steps)
-* if you have many samples it is probably better to use boxplots/beeswarm plots  instead of barplots
+* future versions of tximeta might facilitate such plots as mentioned in the Next steps of the [tximeta vignette](https://www.bioconductor.org/packages/release/bioc/vignettes/tximeta/inst/doc/tximeta.html#Next_steps)
+* note, if you have many samples (>20) it is probably better to use boxplots/beeswarm plots instead of barplots
 
 
 ```{r overview_plots_1, fig.width=9, fig.height=3}
@@ -799,11 +781,10 @@ plot_data_1 <- melt(quant_meta_dt,
                   measure.vars = c("num_proc", "num_map"))
 
 p <- ggplot(plot_data_1, aes(x = name, y = value))
-p <- p + geom_bar(stat="identity", position="dodge")
-p <- p + facet_wrap(~variable, scales = "fixed", ncol=2)
+p <- p + geom_bar(stat = "identity", position = "dodge")
+p <- p + facet_wrap(~variable, scales = "fixed", ncol = 2)
 p
 ```
-
 
 * having used the full genome as decoy allows you to check how many reads were discarded because they map better to a decoy sequence
 * may give you and indication if you have many reads from intronic or intergenic regions
@@ -823,12 +804,11 @@ p
 ```
 
 
-## Gender check
+## Sex check
 
-* sample swaps can happen
-* if you have multiple genders, one way to quickly double check the gender identity is by looking at the expression of XIST against some Y-chromosomal genes
-
-*  X-inactive specific transcript (XIST) is involved in the X-chromosome inactivation process in mammalian females and is expressed from the inactive X chromosome
+* sample swaps can happen at some stage
+* if you have male and female samples, one way to quickly double check the sex identity is by looking at the expression of XIST against some Y-chromosomal genes
+* X-inactive specific transcript (XIST) is involved in the X-chromosome inactivation process in mammalian females and is expressed from the inactive X chromosome
 * here, two female samples have lower expression of XIST, indicating a potential erosion of X chromosome
 
 ```{r XIST_vs_Y_expression, fig.width=5, fig.height=3.5}
@@ -856,22 +836,32 @@ p <- p + geom_point(size = 2, alpha = 0.7)
 p
 ```
 
-* note, the best check for sample identity is possible if samples were previously genotyped (e.g. by genotyping arrays)
+## Genotype check
+
+* probably the best check for sample identity is possible if samples were previously genotyped (e.g. by genotyping arrays)
 * variants can be identified from the RNA-seq data and compared to genotyping data
+* if there are multiple samples from the same donor within the dataset, this could be double checked even without genotyping data by checking the percentage of identical variant calls from pairwise RNA-seq samples
+* below is an example showing the fraction of identical variant calls from genotyping data and RNA-seq data
+* note that patients PD1 and PD2 are siblings
+
+
+```{r fig_genotype_heatmap}
+
+knitr::include_graphics("./data/astro_identity_heatmap.png")
+```
 
 ## PCA
 
 * a common way to globally visualise sample gene expression profiles is by using dimensionality reduction techniques such as principal components analysis (PCA)
 * it also allows to check which samples are similar to each other and spot individual outliers in the dataset
-
-* DESeq2 comes with a basic function (`plotPCA`, which calls `prcomp`) to plot the first two principal components (PC1 and PC2), which explain most of the variance (differences) in the gene expression data
+* DESeq2 comes with a basic function (`plotPCA`, which calls `prcomp`) to plot the first two principal components (PC1 and PC2), which explain most of the variance in the gene expression data
 * the percentage of the total variance that is explained by each PC (direction) is included in the axes labels
 * by default it uses 500 genes with the highest variance across samples
 
-* for more sophisticated PCA you can try, for example, the Bioconductor package [pcaExplorer](http://bioconductor.org/packages/release/bioc/html/pcaExplorer.html)
+***
 
+* for more sophisticated PCA you could try, for example, the Bioconductor packages [pcaExplorer](http://bioconductor.org/packages/release/bioc/html/pcaExplorer.html) or [PCAtools](https://www.bioconductor.org/packages/release/bioc/html/PCAtools.html)
 * examples of other dimensionality reduction techniques are multidimensional scaling (MDS), and especially for single-cell RNA-seq, uniform manifold approximation and projection (UMAP) and t-distributed stochastic neighbor embedding (t-SNE)
-
 * note, for exploratory analysis, such as PCA, it is recommended to transform the counts to stabilize the variance across the mean
 * so that genes with low or high counts do not overly contribute to sample-sample distances
 * DESeq2 offers the variance stabilizing transformation (`vst`) and regularized-logarithm transformation (`rlog`)
@@ -888,25 +878,23 @@ DESeq2::plotPCA(vsd, intgroup = c("name"))
 
 * for example, here, you can see that sample PD1 appears as an outlier
 * you can also see that sex is a factor driving sample separation along PC2
-
 * further evaluation showed that sample PD1 shows residual pluripotency, e.g. indicated by increased expression of POU5F1
-* PD1 was excluded from further analyses
+* PD1 was excluded from further analyses:
 
 ```{r exclude_sample}
 
 gse <- gse[, samples_meta[name != "PD1", sample]]
+gse
 ```
-
 
 
 # Differential expression analysis
 
 * here, we use the Bioconductor package [DESeq2](https://www.bioconductor.org/packages/release/bioc/html/DESeq2.html)
-
+* please see the [DESeq2 vignette](https://www.bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html) for more details about differential expression analysis using DESeq2
 * other popular methods to perform differential gene expression analysis:  
   + [edgeR](https://www.bioconductor.org/packages/release/bioc/html/edgeR.html) 
   + [limma with the voom method](https://www.bioconductor.org/packages/release/bioc/html/limma.html)
-
 * first, we construct a DESeqDataSet object from the imported and gene-level summarised data (`gse`), and using only the protein-coding genes
 
 ```{r DESeqDataSet_setup}
@@ -925,8 +913,7 @@ dds <- DESeqDataSet(gse, design = ~1)
 
 * it is common to exclude lowly-expressed genes
 * there are many genes (rows) with no or very few counts, with a low signal-to-noise ratio (not informative)
-
-* here, keep genes with at least 5 counts
+* here, keep genes with at least 5 counts across all samples
 
 ```{r dds_pre_filter}
 
@@ -949,14 +936,11 @@ cat("Number of genes after filtering: ", nrow(dds), fill=T)
 
 * need to specify a *design formula* describing how counts depend on experimental variables
 * the design formula tells which columns in the sample information table (`colData`) specify the experimental design and how these factors should be used in the analysis
-
 * the simplest design formula would be `~ type` for the effect of disease (comparing controls vs PD cases)
-* `type` is a column in colData(dds)
+* note that `type` is a column in colData(dds)
 * here, we also include `sex` as an additional covariate: test for the effect of disease (type) whilst controlling for the effect of different sex
-
 * note that DESeq2 uses the same formula notation as the `lm` function of base R to fit linear models
 * a formula starts with a tilde `~` followed by the variables with plus signs between them
-
 * variables for experimental design are encoded as factors
 * it recommended to use the reference level (control/untreated samples) as first level (here, `CT`)
 
@@ -997,7 +981,8 @@ summary(res)
 
 ```{r results_columns}
 
-mcols(res, use.names = TRUE)
+res_columns <- as.data.frame(mcols(res, use.names = TRUE))
+res_columns
 ```
 
 * baseMean: average of the (normalised) count values, divided by the size factors, taken over *all* samples
@@ -1008,7 +993,7 @@ mcols(res, use.names = TRUE)
 ## DEGs table
 
 * it is useful to report the list of DEGs based on a significance threshold
-* again we use `DT::datatable` to have a table we can search, sort and copy
+* again we use `DT::datatable` to have a table we can easily search, sort and copy
 
 ```{r deg_table, cache=F}
 
@@ -1084,7 +1069,6 @@ p <- p + facet_wrap(~ext_gene, scales = "free_y", ncol = 5)
 p <- p + xlab(NULL) + ylab("log2(normalised counts + 1)")
 p <- p + theme(legend.position="top")
 p
-
 ```
 
 * and the top 10 up-regulated genes
@@ -1113,13 +1097,36 @@ p
 
 ***
 
-* another typical global visualisation is a *volcano plot*
-* log2 fold changes are plotted on the x-axis against log transformed adjusted p-values on the y-axis (i.e. effect size vs statistical signficance)
-* for advanced volcano plots see [EnhancedVolcano package](https://bioconductor.org/packages/release/bioc/html/EnhancedVolcano.html) 
+## Volcano plot
 
-*** 
+* a typical global visualisation of differential expression results is a *volcano plot*
+* log2 fold changes are plotted on the x-axis against log transformed p-values on the y-axis (i.e. effect size vs statistical signficance)
+* for advanced volcano plots [EnhancedVolcano](https://bioconductor.org/packages/release/bioc/html/EnhancedVolcano.html) can be used
+* it comes with many configuration options, see the [vignette](https://bioconductor.org/packages/release/bioc/vignettes/EnhancedVolcano/inst/doc/EnhancedVolcano.html) for further details
 
-* please see the [DESeq2 vignette](https://www.bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html) for more details about differential expression analysis using DESeq2
+
+```{r enhanced_volcano_1, fig.width=7, fig.height=7}
+
+
+EnhancedVolcano(res,
+                lab = rownames(res),
+                x = 'log2FoldChange',
+                y = 'pvalue')
+```
+
+* it's probably better to use gene symbols:
+
+```{r enhanced_volcano_2, fig.width=7, fig.height=7}
+
+res_dt_all <- as.data.table(res)
+res_dt_all <- res_dt_all[, ens_gene := rownames(res)]
+res_dt_all <- merge(res_dt_all, t2g_genes[, .(ens_gene, ext_gene, desc)], by = "ens_gene")
+
+EnhancedVolcano(res_dt_all,
+                lab = res_dt_all$ext_gene,
+                x = 'log2FoldChange',
+                y = 'pvalue')
+```
 
 ***
 

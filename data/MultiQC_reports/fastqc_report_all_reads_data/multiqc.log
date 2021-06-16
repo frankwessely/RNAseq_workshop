@@ -1,0 +1,43 @@
+[2020-02-25 15:43:41,428] multiqc                                            [DEBUG  ]  No MultiQC config found: /Users/frankwessely/miniconda3/lib/python3.7/site-packages/multiqc_config.yaml
+[2020-02-25 15:43:41,428] multiqc                                            [DEBUG  ]  No MultiQC config found: /Users/frankwessely/.multiqc_config.yaml
+[2020-02-25 15:43:41,428] multiqc                                            [DEBUG  ]  No MultiQC config found: multiqc_config.yaml
+[2020-02-25 15:43:41,428] multiqc                                            [DEBUG  ]  Found command line config: {'fastqc_config': {'fastqc_theoretical_gc': 'hg38_txome'}}
+[2020-02-25 15:43:41,428] multiqc                                            [DEBUG  ]  New config 'fastqc_config': {'fastqc_theoretical_gc': 'hg38_txome'}
+[2020-02-25 15:43:41,429] multiqc                                            [DEBUG  ]  Command used: /Users/frankwessely/miniconda3/bin/multiqc -o /Users/frankwessely/Desktop/Training_RNAseq_part_1/MultiQC_reports/ --title FastQC all reads --filename fastqc_report_all_reads --module fastqc --cl_config fastqc_config: { fastqc_theoretical_gc: hg38_txome } --force /Users/frankwessely/Desktop/Training_RNAseq_part_1/FastQC/FastQC_output_all_reads
+[2020-02-25 15:43:41,538] multiqc                                            [DEBUG  ]  Latest MultiQC version is v1.8
+[2020-02-25 15:43:41,538] multiqc                                            [INFO   ]  This is MultiQC v1.8
+[2020-02-25 15:43:41,538] multiqc                                            [DEBUG  ]  Command     : /Users/frankwessely/miniconda3/bin/multiqc -o /Users/frankwessely/Desktop/Training_RNAseq_part_1/MultiQC_reports/ --title FastQC all reads --filename fastqc_report_all_reads --module fastqc --cl_config fastqc_config: { fastqc_theoretical_gc: hg38_txome } --force /Users/frankwessely/Desktop/Training_RNAseq_part_1/FastQC/FastQC_output_all_reads
+[2020-02-25 15:43:41,538] multiqc                                            [DEBUG  ]  Working dir : /Users/frankwessely/Desktop/Training_RNAseq_part_1_ori
+[2020-02-25 15:43:41,539] multiqc                                            [INFO   ]  Template    : default
+[2020-02-25 15:43:41,539] multiqc                                            [DEBUG  ]  Running Python 3.7.4 (default, Aug 13 2019, 15:17:50)  [Clang 4.0.1 (tags/RELEASE_401/final)]
+[2020-02-25 15:43:41,539] multiqc                                            [INFO   ]  Report title: FastQC all reads
+[2020-02-25 15:43:41,539] multiqc                                            [INFO   ]  Searching   : /Users/frankwessely/Desktop/Training_RNAseq_part_1/FastQC/FastQC_output_all_reads
+[2020-02-25 15:43:41,539] multiqc                                            [INFO   ]  Only using modules fastqc
+[2020-02-25 15:43:41,540] multiqc                                            [DEBUG  ]  Analysing modules: fastqc
+[2020-02-25 15:43:41,540] multiqc                                            [DEBUG  ]  Using temporary directory for creating report: /var/folders/yr/f7jj1ydx78zb8jjxt_8_j5600000gn/T/tmpn1r5986t
+[2020-02-25 15:43:41,612] multiqc                                            [DEBUG  ]  Ignored 203 search patterns as didn't match running modules.
+[2020-02-25 15:43:41,621] multiqc                                            [DEBUG  ]  Ignoring file as matched an ignore pattern: WTCHG_329570_292_1_fastqc.html
+[2020-02-25 15:43:41,621] multiqc                                            [DEBUG  ]  Ignoring file as matched an ignore pattern: WTCHG_329570_291_1_fastqc.html
+[2020-02-25 15:43:41,621] multiqc                                            [DEBUG  ]  Ignoring file as matched an ignore pattern: WTCHG_329570_288_2_fastqc.html
+[2020-02-25 15:43:41,621] multiqc                                            [DEBUG  ]  Ignoring file as matched an ignore pattern: WTCHG_329570_288_1_fastqc.html
+[2020-02-25 15:43:41,622] multiqc                                            [DEBUG  ]  Ignoring file as matched an ignore pattern: WTCHG_329570_291_2_fastqc.html
+[2020-02-25 15:43:41,622] multiqc                                            [DEBUG  ]  Ignoring file as matched an ignore pattern: WTCHG_329570_292_2_fastqc.html
+[2020-02-25 15:43:41,622] multiqc                                            [DEBUG  ]  Ignoring file as matched an ignore pattern: WTCHG_329570_293_2_fastqc.html
+[2020-02-25 15:43:41,623] multiqc                                            [DEBUG  ]  Ignoring file as matched an ignore pattern: WTCHG_329570_287_2_fastqc.html
+[2020-02-25 15:43:41,623] multiqc                                            [DEBUG  ]  Ignoring file as matched an ignore pattern: WTCHG_329570_290_2_fastqc.html
+[2020-02-25 15:43:41,623] multiqc                                            [DEBUG  ]  Ignoring file as matched an ignore pattern: WTCHG_329570_289_1_fastqc.html
+[2020-02-25 15:43:41,623] multiqc                                            [DEBUG  ]  Ignoring file as matched an ignore pattern: WTCHG_329570_289_2_fastqc.html
+[2020-02-25 15:43:41,623] multiqc                                            [DEBUG  ]  Ignoring file as matched an ignore pattern: WTCHG_329570_287_1_fastqc.html
+[2020-02-25 15:43:41,623] multiqc                                            [DEBUG  ]  Ignoring file as matched an ignore pattern: WTCHG_329570_290_1_fastqc.html
+[2020-02-25 15:43:41,624] multiqc                                            [DEBUG  ]  Ignoring file as matched an ignore pattern: WTCHG_329570_293_1_fastqc.html
+[2020-02-25 15:43:41,866] multiqc.plots.linegraph                            [DEBUG  ]  Using matplotlib version 2.2.4
+[2020-02-25 15:43:41,867] multiqc.plots.bargraph                             [DEBUG  ]  Using matplotlib version 2.2.4
+[2020-02-25 15:43:42,736] multiqc.modules.fastqc.fastqc                      [INFO   ]  Found 14 reports
+[2020-02-25 15:43:42,984] multiqc                                            [INFO   ]  Compressing plot data
+[2020-02-25 15:43:43,196] multiqc                                            [INFO   ]  Report      : ../Training_RNAseq_part_1/MultiQC_reports/fastqc_report_all_reads.html
+[2020-02-25 15:43:43,196] multiqc                                            [INFO   ]  Data        : ../Training_RNAseq_part_1/MultiQC_reports/fastqc_report_all_reads_data
+[2020-02-25 15:43:43,196] multiqc                                            [DEBUG  ]  Moving data file from '/var/folders/yr/f7jj1ydx78zb8jjxt_8_j5600000gn/T/tmpn1r5986t/multiqc_data/multiqc_fastqc.txt' to '/Users/frankwessely/Desktop/Training_RNAseq_part_1/MultiQC_reports/fastqc_report_all_reads_data'
+[2020-02-25 15:43:43,196] multiqc                                            [DEBUG  ]  Moving data file from '/var/folders/yr/f7jj1ydx78zb8jjxt_8_j5600000gn/T/tmpn1r5986t/multiqc_data/multiqc_general_stats.txt' to '/Users/frankwessely/Desktop/Training_RNAseq_part_1/MultiQC_reports/fastqc_report_all_reads_data'
+[2020-02-25 15:43:43,197] multiqc                                            [DEBUG  ]  Moving data file from '/var/folders/yr/f7jj1ydx78zb8jjxt_8_j5600000gn/T/tmpn1r5986t/multiqc_data/multiqc_sources.txt' to '/Users/frankwessely/Desktop/Training_RNAseq_part_1/MultiQC_reports/fastqc_report_all_reads_data'
+[2020-02-25 15:43:43,197] multiqc                                            [DEBUG  ]  Moving data file from '/var/folders/yr/f7jj1ydx78zb8jjxt_8_j5600000gn/T/tmpn1r5986t/multiqc_data/multiqc_data.json' to '/Users/frankwessely/Desktop/Training_RNAseq_part_1/MultiQC_reports/fastqc_report_all_reads_data'
+[2020-02-25 15:43:43,423] multiqc                                            [INFO   ]  MultiQC complete

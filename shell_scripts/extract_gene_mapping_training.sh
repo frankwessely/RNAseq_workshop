@@ -1,8 +1,8 @@
 #!/bin/bash
 
-FA_FILE_GZ="./Reference_training/ensembl_GRCh38_cdna_ncrna_v99_noalt.fa.gz"
-FA_FILE="./Reference_training/ensembl_GRCh38_cdna_ncrna_v99_noalt.fa"
-GENE_MAP_FILE="./Reference_training/ensembl_GRCh38_v98_cdna_ncrna_v99_noalt_gene_map_training.txt"
+FA_FILE_GZ="../data/Reference_training/ensembl_GRCh38_cdna_ncrna_v99_noalt.fa.gz"
+FA_FILE="../output_training/Reference_training/ensembl_GRCh38_cdna_ncrna_v99_noalt.fa"
+GENE_MAP_FILE="../output_training/Reference_training/ensembl_GRCh38_v98_cdna_ncrna_v99_noalt_gene_map_training.txt"
 
 ## alternative: use zgrep if available to avoid decompressing
 gunzip -c $FA_FILE_GZ > $FA_FILE

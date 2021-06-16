@@ -13,6 +13,8 @@ dependencies:
   - bioconductor-tximeta
   - bioconductor-DESeq2
   - bioconductor-EnhancedVolcano
+  - bioconductor-clusterProfiler
+  - bioconductor-org.Hs.eg.db
   - fastqc
   - multiqc
   - salmon

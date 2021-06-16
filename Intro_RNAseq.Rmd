@@ -143,6 +143,8 @@ library(DESeq2) # differential expression analysis
 library(genefilter) # rowVars(), imported by DESeq2
 library(SummarizedExperiment) # colData()
 library(EnhancedVolcano) # pretty volcano plots
+library(clusterProfiler) # GO analysis
+library(org.Hs.eg.db) # annotation of human genes in many formats
 
 ## cache = TRUE - cache results (in a folder) for future knits - set TRUE for running on local machine
 ## caching avoids re-running code if unchanged
@@ -1107,7 +1109,6 @@ p
 
 ```{r enhanced_volcano_1, fig.width=7, fig.height=7}
 
-
 EnhancedVolcano(res,
                 lab = rownames(res),
                 x = 'log2FoldChange',
@@ -1130,6 +1131,60 @@ EnhancedVolcano(res_dt_all,
 
 ***
 
+## GO enrichment
+
+* a common functional analysis step is the enrichment analysis for Gene Ontology
+* there are many R packages that could be used for this for example [topGO](https://bioconductor.org/packages/release/bioc/html/topGO.html) or [clusterProfiler](https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html)
+
+***
+
+* here, use package clusterProfiler with all DEGs as input
+* background (gene universe): all genes not filtered by DESeq2
+
+```{r clusterProfiler}
+
+## background of expressed genes
+genes_universe <- res_dt_all[!(is.na(padj)), ens_gene]
+## use all DEGs, could be filtered by direction (up vs down) or minimum absolute log2FC
+genes_test <- res_dt$ens_gene
+
+## takes a minute or so to run
+go_enrich <-
+  enrichGO(
+    gene = genes_test,
+    universe = genes_universe,
+    keyType = "ENSEMBL",
+    OrgDb = "org.Hs.eg.db",
+    ont = "BP",
+    pAdjustMethod = "BH",
+    pvalueCutoff = 0.05,
+    qvalueCutoff = 0.05,
+    maxGSSize = 500
+  )
+
+## show all signficant terms in a table
+go_enrich_print <- data.table(data.frame(go_enrich))
+go_enrich_print <- go_enrich_print[, .(ID, qvalue, GeneRatio, BgRatio, Description)]
+go_enrich_print <- go_enrich_print[, qvalue := signif(qvalue, 3)]
+
+go_enrich_print %>% 
+  DT::datatable(caption = "GO:BP enrichment", 
+                escape = F, 
+                rownames = F, 
+                extensions = 'Buttons', 
+                options = list(dom = 'Blfrtip', 
+                               buttons = list('colvis', 
+                                              list(extend = 'copy', exportOptions = list(columns=':visible')),
+                                              list(extend = 'csv', exportOptions = list(columns=':visible')),
+                                              list(extend = 'excel', exportOptions = list(columns=':visible')))))
+```
+
+* enrichment results can be plotted:
+
+```{r plot_enrichment_results, fig.width=9, fig.height=3.5}
+
+dotplot(go_enrich, showCategory = 10)
+```
 
 # SessionInfo
 

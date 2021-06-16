@@ -301,7 +301,7 @@ open a terminal/shell and change into the folder `shell_scripts` using the `cd` 
 run FastQC on sub-sampled FASTQ files with 100K reads by typing: `bash run_fastqc_training.sh`, or modify the shell script to check your own FASTQ files
 
 3. 
-check the contents of the output folder
+check the contents of the output folder `output_training`
 
 ***
 
@@ -375,17 +375,15 @@ check the contents of the output folder
 ## Transcriptome
 
 * we need an organism-specific reference, human in our case
-
 * get a reference set of (spliced) transcripts from [ensembl](https://www.ensembl.org/info/data/ftp/index.html) or [GENCODE](https://www.gencodegenes.org/)
-
 * ensembl provides two FASTA files for coding (cDNA) and non-coding (ncRNA) transcript sequences
 * it is recommended to use *both* types of transcripts for more accurate quantification
 
+***
 
 * download (`wget` or `curl -O`) cDNA and ncRNA transcript sequences from ensembl
 * combine/concatenate the two FASTA files using the `cat` command
 * also we exclude alternative (or alternate) transcript sequences with ensembl location `CHR_H*`, which are allelic sequences (haplotypes and novel patches) or assembly fix patches, and are not part of the primary assembly
-
 * here is example code for those steps to obtain the transcriptome from ensembl (no need to run):
 
 ```{r ensembl_reference, eval=FALSE}
@@ -414,10 +412,8 @@ gzip -c > ensembl_GRCh38_cdna_ncrna_v99_noalt.fa.gz
 * `grep -v CHR_H` print non-matching lines
 * `tr -d '>'` simply delete the '>' character
 * `>` redirect the output to the specified file
-
 * `seqtk subseq` is used to extract those sequences with matching names in `non_alt_seq_names.txt`
 * `gzip -c` compress the FASTA file
-
 * note, for any command line tool you can get help (manual page) by typing `man` followed by the tool name e.g. `man grep` or `man tr`
 * leave the man page by pressing `Q` on your keyboard
 
@@ -431,9 +427,8 @@ gzip -c > ensembl_GRCh38_cdna_ncrna_v99_noalt.fa.gz
 ## Index transcriptome
 
 * first step to run Salmon means *indexing* the transcriptome as it is needed for efficient search
-* this step is totally *independent* of the sequencing reads
+* this step is totally *independent* of your sequencing reads
 * needs to be done only once for that specific reference and can be re-used for future runs/experiments
-
 * build the Salmon index for the reference transcriptome (cDNA plus ncRNA):
 
 ```{r salmon_index_transcriptome, eval=F}
@@ -446,10 +441,8 @@ salmon index \
 
 * creates an index directory as specified by `-i`
 * the indexing step takes a little while, if possible make use of multiple threads (`-p`) to speed it up
-
 * note, the default k-mer size (31) was used, which specifies the minimum match length used when searching for alignments
 * having reads shorter than 75bp, e.g. 50bp or many reads trimmed (e.g. down to 30bp), a lower value is recommended, e.g. (`-k 23`)
-
 * type this command in your terminal to see all Salmon index options: `salmon index --help`
 
 ## Index decoy-aware transcriptome
@@ -457,12 +450,12 @@ salmon index \
 * recommended to build a decoy-aware transcriptome to improve accuracy of transcript quantification
 * deal with reads that could originate from un-annotated genomic locus that is sequence-similar to an annotated (i.e. known) transcript
 * helps to prevent reads from spuriously aligning to the transcriptome
-
 * more information about this can be found on [bioRxiv](https://www.biorxiv.org/content/10.1101/657874v2) and this [blog post](https://combine-lab.github.io/alevin-tutorial/2019/selective-alignment/)
 * see also [Salmon documentation](https://salmon.readthedocs.io/en/latest/salmon.html)
-
-* most compregensive solution: use the *whole genome* as decoy
+* most comprehensive solution: use the *whole genome* as decoy
 * a read (fragment) is discarded if it aligns *better*(!) to a decoy genome sequence rather than a transcript sequence
+
+***
 
 * download (`wget` or `curl -O`) the genomic sequences
 * extract sequence names of genome targets (decoys) as a list of chromosome names saved in a text file called `decoys_ensembl_v99_primary.txt`:
@@ -489,7 +482,6 @@ tr -d '>' \
 * GRCh38 primary assembly (all top-level sequence regions excluding haplotypes & patches) has 194 genome sequences:
 * 1-22 autosomes, X, Y, MT, 16 GL\*, 153 KI\* (unlocalised and unplaced scaffolds/contigs)
 * these 194 sequence names are listed in `decoys_ensembl_v99_primary_tester.txt`
-
 * next, concatenate (`cat`) the transcriptome and genome FASTA files and build a decoy-aware Salmon index 
 
 ```{r salmon_index_decoy, eval=F}

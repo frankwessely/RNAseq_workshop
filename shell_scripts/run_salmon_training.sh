@@ -1,9 +1,10 @@
 #!/bin/bash
 
-INPUT_DIR="./Fastq_files/Fastq_training_subsample_100K/"
-OUTPUT_DIR="./Salmon_mapping/Salmon_quant_110_ensembl_v99_noalt_k31_100K/"
+INPUT_DIR="../data/Fastq_files/Fastq_training_subsample_100K/"
+## OUTPUT_DIR="../output_training/Salmon_mapping/Salmon_quant_110_ensembl_v99_noalt_k31_100K/"
+OUTPUT_DIR="../output_training/Salmon_mapping/Salmon_quant_110_ensembl_v99_noalt_k31_100K_chr10/"
 
-SALMON_IDX="./Salmon_index/salmon_idx_ensembl_GRCh38_cdna_ncrna_v99_noalt_k31"
+SALMON_IDX="../data/Salmon_index/salmon_idx_ensembl_GRCh38_cdna_ncrna_v99_noalt_k31_chr10"
 
 mkdir -p $OUTPUT_DIR
 

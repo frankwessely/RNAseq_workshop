@@ -13,3 +13,5 @@ dependencies:
   - bioconductor-tximeta
   - bioconductor-DESeq2
   - fastqc
+  - multiqc
+  - salmon

@@ -20,46 +20,56 @@ knit: (function(input_file, encoding) {
 
 # Notes
 
-* this file is intended to give an introduction to the first main steps of bulk RNA-seq analysis
+* this document is intended to give an introduction to the first main steps of bulk RNA-seq analysis
 * starting from FASTQ files containing the sequencing reads from a sequencing machine
-
-* the first steps using the raw data are usually performed by external tools outside R/RStudio
+* the first steps using raw data are usually performed by external tools outside R/RStudio
 * we will showcase how to run some of the external tools
-* analysis is performed within R *after* the alignment of reads and generation of counts for each sample, which will be imported into R
+* analysis is usually performed within R *after* the alignment of reads and generation of counts for each sample, which will be imported into R
 
 ***
 
-* it will be an interactive session where we go through this `.Rmd` (R Markdown) file and run the code chunks as we go along
+* the first part of this workshop will be less interactive, where we highlight the main steps outside R
+* interested users are highly encouraged to install and run those tools on their local machines with the help of the material provided in this workshop
+* later on in the breakout sessions we will make use of this document in a more interactive way and run the code chunks as we go along
+
+***
+
 * individual code chunks can be run by clicking the green triangle in the upper right corner within RStudio
-* note, that code chunks with the option `eval=FALSE` are *not* meant to be run here
+* note, that code chunks with the option `eval=FALSE` are **not** meant to be run here
 * they just produce examples or (external) code to be shown in the output HTML file
 * some of the code given in those code chunks might be helpful for you in the future
 
 ***
 
-* the training material contains the output HTML file (`Intro_RNAseq_v1_out.html`) of this .Rmd file
-* this file is generated if you run/knit this whole .Rmd file 
-* i.e. if you clicked the 'Knit' button in RStudio
-* the HTML output file name will be `Intro_RNAseq_v1.html` (without '_out')
+* the GitHub workshop repository contains a link to the output HTML file of this .Rmd file
+* this file can be generated if you run/knit this whole .Rmd file 
+* i.e. if you clicked the `Knit` button in RStudio
 
 ***
 
-**Some set-ups regarding this file**
+**How to use this file**
 
-1.
-* please check whether you are able to load all the R packages in the chunk `setup`
+1. using it via Binder
+
+* this document can be run run and explored within the RStudio environment provided by [mybinder.org](https://mybinder.org)
+* it means that you can interact with this document totally independent of your local R/RStudio setup using the remote RStudio environment via your web browser
+* all R package dependencies should be taken care of
+* note, launching RStudio and running the code via mybinder.org can be a bit slow or the service could go down temporarily
+
+2. using it locally
+
+* you can also run and explore this document on your local machine
+* one simple way is to download the zip file from the GitHub repository (click on green button Code)
+* it will give you the same files and folder hierarchy as the GitHub repository
+* please make sure you have installed all the R packages in the chunk `setup`
 * see also the notes below regarding the installation of R packages
+* if necessary, please change the variable `input_dir` in chunk `training_files` to the path/location where you stored the training material (don't forget the last slash at the end)
 
-2.
-* please change the variable `input_dir` in chunk `training_files` to the path/location where you stored the training material folder called `Training_RNAseq_part_1`
-* *don't forget the last slash at the end!*
-* on Windows you'd specify something like this: `input_dir <- "C:/Users/USERNAME/Desktop/Training_RNAseq_part_1/"`
+***
 
-3.
-* Windows only!
+* note, Windows only:
 * there is an issue with finding the cached tximeta metadata folder on *Windows* (when calling `setTximetaBFC()`)
 * it seems to require a specific folder, in which it will create a file pointing to the cached folder
-
 * here in RStudio you can run the following code to create this directory structure
 
 ```{r windows_directory, eval=F}
@@ -68,56 +78,56 @@ dir.create(paste("C:/Users/", Sys.getenv("USERNAME"), "/AppData/Local/tximeta/tx
 
 ## or, if you know your username, you can manually specify your USERNAME:  
 ## dir.create("C:/Users/USERNAME/AppData/Local/tximeta/tximeta/Cache", recursive=TRUE)
-
 ```
 
 ***
 
 **External tools**
 
-* we mention and let you run a few external tools
-* those are usually run on dedicated external computer clusters making use of computational resources not available on standard laptops or desktop machines
+* we mention and showcase a few external tools
+* those are often run on dedicated external computer clusters for larger datasets making use of computational resources not available on standard laptops or desktop machines
+* it is not necessary to run those tools during the training session
+* however, it would be good to give it a go on your machines (potentially on a smaller subset of the data) as a follow-up to this workshop
 
-* it is **not** necessary to run those tools during the training session
-* however, it would be good to give it a go on your machines (on a smaller subset of the data)
+***
 
-* external tools are usually run via bash shell scripts (`.sh` files) provided as part of the training material
+* external tools are often run via bash shell scripts (`.sh` files) provided as part of the training material
 * in a shell (Terminal on MacOS), a command line interface, they are run by typing `bash script_name.sh`
 * you can also use the `Terminal` within RStudio itself (tab `Terminal` in the bottom left panel)
-
 * some explanation of the external code is provided here to help you understand the code in the `.sh` files
 * also this online tool might help to understand command line/shell script code: [explainshell.com](https://explainshell.com)
 
-* those tools are: 
+***
+
+* some useful tools for initial RNA-seq data analysis: 
   + [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
   + [MultiQC](https://multiqc.info)
   + [Salmon](https://github.com/COMBINE-lab/salmon)
-  
+
+
 * all tools can be installed via [conda/bioconda](http://bioconda.github.io/user/install.html)
 * please follow the instructions to install Miniconda described in the link above
 * note, Bioconda supports only 64-bit Linux and Mac OS
-
-* the 3 tools can then be easily installed:
-
+* the 3 tools can then be easily installed:  
 * `conda install -c bioconda fastqc`
 * `conda install -c bioconda salmon`
 * `conda install -c bioconda multiqc`
 
 **R packages**
 
-* see the code chunk `setup` below
+* please see the code chunk `setup` below
 * if all packages in this chunk can be loaded then all code of this Rmd file should be executable
-
 * [CRAN](https://cran.r-project.org) packages can be easily installed within RStudio
-* click on `Packages` tab in the bottom right RStudio panel
+* click on `Packages` tab in the bottom right RStudio pane
 * click on `install` button and search for a specific package and select from the list
 * tick the box `Install dependencies` (should be the default)
-
 * [Bioconductor](https://www.bioconductor.org) packages are installed via the R package [BiocManager](https://cran.r-project.org/web/packages/BiocManager/vignettes/BiocManager.html)
 * install `BiocManager` first, as any other CRAN package as described above
 * individual Bioconductor packages can be installed via: `BiocManager::install("DESeq2", dependencies=TRUE)`
 
 ***
+
+# Setup
 
 ```{r setup, message=FALSE, warning=FALSE}
 
@@ -136,16 +146,14 @@ library(SummarizedExperiment) # colData()
 ## cache = TRUE - cache results (in a folder) for future knits - set TRUE for running on local machine
 ## caching avoids re-running code if unchanged
 ## echo = TRUE  - display code in output document 
-knitr::opts_chunk$set(cache = FALSE, echo = TRUE) # set cache = FALSE for mybinder
+knitr::opts_chunk$set(cache = TRUE, echo = TRUE) # set cache = FALSE for mybinder
 
 ## white background theme for all ggplot2 plots
 theme_set(theme_bw())
 ```
 
 * there are a number of files and folders as part of the training material
-
-* **please change** `input_dir` to the corresponding path of your system
-
+* **please change** `input_dir` to the corresponding path of your system if run your local machine
 
 ```{r training_files}
 
@@ -153,7 +161,7 @@ theme_set(theme_bw())
 ## folder with training material
 # input_dir <- "/Users/USERNAME/Desktop/RNAseq_workshop/"
 # input_dir <- "C:/Users/USERNAME/Desktop/Training_RNAseq_part_1/"
-## use data saved on github folder 'Data'
+## use data saved on github folder 'data'
 input_dir <- "./data/"
 ######
 
@@ -166,7 +174,7 @@ salmon_quant_dir <- paste0(input_dir,
                            "Salmon_mapping/Salmon_quant_110_ensembl_v99_noalt_decoy_k31_all_reads")
 
 ## Salmon index
-## NOTE: contains  only 'info.json' (and duplicate_clusters.tsv), not the whole index!
+## NOTE: contains  only 'info.json' (and duplicate_clusters.tsv), not the whole index!!
 salmon_index <- paste0(input_dir, 
                        "Salmon_index/salmon_idx_ensembl_GRCh38_cdna_ncrna_v99_noalt_decoy_k31")
 
@@ -178,11 +186,11 @@ salmon_duplicates_file <- paste0(salmon_index,
 gtf_file <- paste0(input_dir, 
                    "Reference_training/Homo_sapiens.GRCh38.99.gtf.gz")
 
-## transcript sequences used for salmon index
+## transcript sequences used for Salmon index
 salmon_fasta_input <- paste0(input_dir, 
                              "Reference_training/ensembl_GRCh38_cdna_ncrna_v99_noalt.fa.gz")
 
-## transcript to gene info table
+## transcript to gene mapping table
 t2g_file <- paste0(input_dir, 
                    "Reference_training/ensembl_GRCh38_v98_cdna_ncrna_v99_noalt_gene_map.txt")
 
@@ -197,10 +205,10 @@ tximeta_cache_folder <- paste0(input_dir,
 jsonFile <- paste0(tximeta_cache_folder, 
                    "/ensembl_v99_cdna_ncrna_noalt_decoy.json")
 
-## SummarizedExperiment file using tximeta for data import, will be loaded here instead of being generated
+## SummarizedExperiment on gene level file using tximeta for data import
+## will be loaded here instead of being generated
 gse_file <- paste0(input_dir, "gse_object_from_tximeta_import.rds")
 ```
-
 
 # Initial quality control
 
@@ -208,15 +216,15 @@ gse_file <- paste0(input_dir, "gse_object_from_tximeta_import.rds")
 
 * text-based files containing the final output from a sequencing machine 
 * serve as starting point for RNA-seq analysis
-
 * usually one (single-end) or two (paired-end) FASTQ files per sample
-* there can be more FASTQ files per sample if the library was run on multiple lanes of the sequencing machine
+* note, there can be more FASTQ files per sample if the library was run on multiple lanes of the sequencing machine
 * usually with file extension `.fastq` or `.fq` and usually compressed `.fastq.gz`
 * paired-end sequencing: read 1 in `1.fastq.gz` and read 2 in `2.fastq.gz`
 
+***
+
 * 4 lines per read
 * read about the [FASTQ format](https://en.wikipedia.org/wiki/FASTQ_format)
-
 * for example, read 1 and 2 of one read pair from `1.fastq.gz` and `2.fastq.gz`, respectively:
 
 ```{r fastq_example, eval=FALSE}
@@ -236,13 +244,13 @@ AA<FFJJJJJJJJJJJJJJJJJJJJAJJJJJJJJJFFFJJJJJJFJJJJJJJJJFJJJFFJJJJJJ<FJJJJJJJ
 
 * bulk RNA-seq from 7 samples of iPSC-derived astrocytes: 
 * 4 samples from Parkinson's disease (PD) and 3 samples from healthy controls (CT)
-
 * polyA+ enrichment, 75bp paired-end, Illumina HiSeq 4000
 * sequencing data is available from Gene Expression Omnibus [GEO GSE120306](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE120306)
 
-* European Nucleotide Archive [ENA](https://www.ebi.ac.uk/ena/data/view/PRJNA492470) provides direct access to published FASTQ files 
-* data table contains FTP links to download original FASTQ files
+***
 
+* the European Nucleotide Archive [ENA](https://www.ebi.ac.uk/ena/data/view/PRJNA492470) provides direct access to published FASTQ files 
+* a file report contains FTP links to easily download original FASTQ files
 * for example, use the command `wget` (or `curl -O`) in your terminal/shell to download paired-end sequencing data of one sample from ENA to your current directory:
 
 ```{r fastq_download_example, eval=FALSE}
@@ -251,72 +259,67 @@ wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR788/005/SRR7889835/SRR7889835_1.fastq
 wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR788/005/SRR7889835/SRR7889835_2.fastq.gz
 ```
 
-* note, for this training 100,000 (100K) read pairs were randomly selected from the original paired FASTQ files using [seqtk sample](https://github.com/lh3/seqtk)
+* note, for this training 100,000 read pairs were randomly selected from the original paired FASTQ files using [seqtk sample](https://github.com/lh3/seqtk)
 * `seqtk` is a handy tool for processing FASTQ (and FASTA) files
-
-* here, sub-sampled FASTQ files are provided in the folder `./Fastq_files/Fastq_training_subsample_100K`
+* here, sub-sampled FASTQ files are provided in the folder `/data/Fastq_files/Fastq_training_subsample_100K`
 
 ## FastQC
 
 * widely used first-line QC tool to assess raw (or pre-processed/trimmed) FASTQ files
-* Java programme available [here](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
+* Java programme available from [Babraham Bioinformatics](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
 * can be installed via conda/bioconda: e.g. `conda install -c bioconda fastqc`
-
 * run for every FASTQ file as input
 * generates a HTML report for each FASTQ file
-
-* here is an example bash script to run FastQC for all FASTQ files in the input directory:
+* here is a simple bash script to run FastQC for all FASTQ files in one input directory:
 
 ```{r, code = readLines("./shell_scripts/run_fastqc_training.sh"), eval=F}
 ```
 
 **some explanation**
 
-* it assumes that the `fastqc` command is known
-
-* `.` the dot in `./Fastq_files/Fastq_training_subsample_100K` specifies the *current directory*
+* it assumes that the `fastqc` command is known, i.e. the tool is installed
+* `..` the double dot specifies the *parent directory* (one level up)
 * `mkdir -p` make directory with `-p` option: no error if existing, make parent directories as needed
 * `$NAME` the dollar sign `$` will access the value assigned (via `=`) to the variable `NAME`
 * `for` iterates over all FASTQ files (ending with `.fastq.gz`) found in the input directory
 * `*` a placeholder
-* `echo` print text
+* `echo` print text or values of a variable
+
+***
 
 * note, mutiple files can be specified as input to FastQC, best to use multiple threads in that case (`-t` argument)
 * type this command in your terminal to see all options: `fastqc --help`
 
 ***
 
-**Tasks:**   
+**tasks:**   
 
 1. 
-open a terminal/shell and change into the folder `Training_RNAseq_part_1` using the `cd` command, e.g. `cd Desktop/Training_RNAseq_part_1`, press the `Tab` key for auto-completion of names you have started to type  
+open a terminal/shell and change into the folder `shell_scripts` using the `cd` command, press the `Tab` key for auto-completion of names you have started to type 
 
 2. 
-run FastQC on sub-sampled FASTQ files with 100K reads by typing: `bash run_fastqc_training.sh`  
+run FastQC on sub-sampled FASTQ files with 100K reads by typing: `bash run_fastqc_training.sh`, or modify the shell script to check your own FASTQ files
 
 3. 
-check the contents of the output folder: `./FastQC/FastQC_output_100K`
+check the contents of the output folder
 
 ***
 
-* the HTML report contains a number of summary plots to quickly assess your data
+* the FastQC HTML report for each FASTQ file contains a number of summary plots to quickly assess your data
 * the individual QC tests come with a flag: pass, warn or failure
-* note that warnings or failures can happen in perfectly fine sequencing datasets
+* note that warnings or failures can happen even in perfectly fine sequencing datasets
 * for example, RNA-seq data usually fails in the `Per Base Sequence Content` check because of a known bias at the start of the sequences, see [here](https://sequencing.qcfail.com/articles/positional-sequence-bias-in-random-primed-libraries/) for more information about this
-
 * help and explanation of different FASTQC analysis modules: [FastQC Help](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/Help/)
-
 * also see a [good](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/good_sequence_short_fastqc.html) and a [bad](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/bad_sequence_fastqc.html) example on the FastQC website
+
 
 ## MultiQC
 
 * very useful [reporting tool](https://multiqc.info) to merge summary statistics from [many bioinformatics tools](https://multiqc.info/docs/#multiqc-modules), including FastQC
 * can be [installed](https://multiqc.info/docs/#installing-multiqc) via conda/bioconda: e.g. `conda install -c bioconda fastqc`
-
 * recursively searches through any provided file directories and finds files that it recognises
-* provides convenient HTML report file
-
-* here is an example bash script to run MultiQC summarising the FastQC results:
+* provides convenient HTML report files
+* here is an example bash script to run MultiQC summarising our FastQC results:
 
 ```{r code = readLines("./shell_scripts/run_multiqc_training.sh"), eval=F}
 ```
@@ -324,7 +327,6 @@ check the contents of the output folder: `./FastQC/FastQC_output_100K`
 **some explanation**
 
 * it assumes that the `multiqc` command is known
-
 * a backslash `\` (directly followed by a linebreak) means the command continuous in the next line
 * `--cl_config` allows module-specific config values to be set, e.g. add a theoretical distribution of GC content
 * type this command in your terminal to see all options: `multiqc --help`
@@ -335,30 +337,28 @@ check the contents of the output folder: `./FastQC/FastQC_output_100K`
 
 ***
 
-* multiple QC modules from different tools can be combined into one large report
-* here is an [example report for RNA-seq data](https://multiqc.info/examples/rna-seq/multiqc_report.html) combining results from multiple tools
+* multiple QC modules from many different tools can be combined into one large report
+* here is an [example report for RNA-seq data](https://multiqc.info/examples/rna-seq/multiqc_report.html) combining results from multiple RNA-seq tools
 
 
 ## Optional steps
 
 * upon initial inspection it may be necessary to pre-process the raw FASTQ files before proceeding
-
 * for example, FastQC results might reveal adapter sequence contamination or very low-quality read ends
-
 * several tools are available for adapter removal and/or quality trimming 
 * for example, [cutadapt](https://cutadapt.readthedocs.io/en/stable/) or [fastp](https://github.com/OpenGene/fastp)
-
 
 
 # Alignment and quantification
 
 * general task: find the origin of reads within the genome/transcriptome and quantify transcript/gene expression
-
 * here we use [Salmon](https://github.com/COMBINE-lab/salmon) as a *transcript quantification tool*
 * Salmon aligns reads to a reference transcriptome and estimates transcript-level abundances
-
 * can be installed via conda/bioconda: e.g. `conda install -c bioconda salmon`
 * pre-compiled [binary releases](https://github.com/COMBINE-lab/salmon/releases) are available for linux environments
+
+
+***
 
 * other common tools for RNA-seq data:
   + [Kallisto](https://pachterlab.github.io/kallisto/about.html) (similar to Salmon, another 'lightweight quantifier')
@@ -369,7 +369,6 @@ check the contents of the output folder: `./FastQC/FastQC_output_100K`
 * STAR and HISAT2 produce output files in [SAM/BAM format](https://samtools.github.io/hts-specs/SAMv1.pdf)
 * the alignment information contained in those (usually large) files can be used by additional tools to perform transcript quantification
 * in fact, alignments (to the transcriptome)  reported by STAR (or other aligners) can be used as input to Salmon (instead of providing the raw sequencing reads) to obtain transcript abundances [Salmon's alignment-based mode](https://salmon.readthedocs.io/en/latest/salmon.html#quantifying-in-alignment-based-mode)
-
 * here we use Salmon in the mapping-based mode directly processing reads
 * this requires a specific data structure of the transcriptome - an index
 

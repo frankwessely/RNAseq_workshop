@@ -1,7 +1,7 @@
 #!/bin/bash
 
-INPUT_DIR="./Fastq_files/Fastq_training_subsample_100K/"
-OUTPUT_DIR="./FastQC/FastQC_output_100K"
+INPUT_DIR="../data/Fastq_files/Fastq_training_subsample_100K/"
+OUTPUT_DIR="../output_training/FastQC/FastQC_output_100K"
 
 mkdir -p $OUTPUT_DIR
 

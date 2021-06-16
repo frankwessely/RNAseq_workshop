@@ -12,3 +12,4 @@ dependencies:
   - bioconductor-tximport
   - bioconductor-tximeta
   - bioconductor-DESeq2
+  - fastqc

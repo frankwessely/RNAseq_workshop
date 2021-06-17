@@ -454,7 +454,7 @@ salmon index \
 * recommended to build a decoy-aware transcriptome to improve accuracy of transcript quantification
 * deal with reads that could originate from un-annotated genomic locus that is sequence-similar to an annotated (i.e. known) transcript
 * helps to prevent reads from spuriously aligning to the transcriptome
-* more information about this can be found on [bioRxiv](https://www.biorxiv.org/content/10.1101/657874v2) and this [blog post](https://combine-lab.github.io/alevin-tutorial/2019/selective-alignment/)
+* more information about this can be found in this [paper](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-02151-8) and this [blog post](https://combine-lab.github.io/alevin-tutorial/2019/selective-alignment/)
 * see also [Salmon documentation](https://salmon.readthedocs.io/en/latest/salmon.html)
 * most comprehensive solution: use the *whole genome* as decoy
 * a read (fragment) is discarded if it aligns *better*(!) to a decoy genome sequence rather than a transcript sequence
@@ -472,7 +472,7 @@ gunzip -c Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz | \
 grep '^>' | \
 cut -d ' ' -f1 | \
 tr -d '>' \
-> decoys_ensembl_v99_primary_tester.txt
+> decoys_ensembl_v99_primary.txt
 ```
 
 **some explanation**
@@ -485,7 +485,7 @@ tr -d '>' \
 
 * GRCh38 primary assembly (all top-level sequence regions excluding haplotypes & patches) has 194 genome sequences:
 * 1-22 autosomes, X, Y, MT, 16 GL\*, 153 KI\* (unlocalised and unplaced scaffolds/contigs)
-* these 194 sequence names are listed in `decoys_ensembl_v99_primary_tester.txt`
+* these 194 sequence names are listed in `decoys_ensembl_v99_primary.txt`
 * next, concatenate (`cat`) the transcriptome and genome FASTA files and build a decoy-aware Salmon index 
 
 ```{r salmon_index_decoy, eval=F}
@@ -501,6 +501,7 @@ salmon index \
 ```
 
 * again, this takes a while, needs some memory resources and will produce an index of about 18GB(!)
+* pre-computed salmon indices for some common organisms are available from [refgenie](http://refgenomes.databio.org)
 
 ## Salmon quant
 
@@ -608,6 +609,7 @@ t2g_genes <- unique(t2g, by = "ens_gene")
 
 * `t2g` is used to summarise Salmon transcript abundances at the gene level (ensembl transcript and gene IDs columns)
 * `quant.sf` is the main quantification file produced by Salmon for every sample
+* `txi` is simply a list of matrices
 
 ```{r run_tximport}
 
@@ -663,6 +665,7 @@ se <- tximeta(samples_meta, type = "salmon")
 * import Salmon data and use cached version (`tximeta_cache_folder`) of the metadata and transcript ranges
 * usually you run this code block, making use of the tximeta cache
 * not used during training, simply to avoid uploading a sqlite database
+* tximeta returns a *SummarizedExperiment* object (different to tximport)
 
 ```{r run_tximeta}
 
@@ -682,7 +685,7 @@ se <- tximeta(samples_meta, type = "salmon")
 ```
 
 * summarise transcript-level quantifications to the gene-level
-* with tximeta, the transcript to gene mapping table is automatically created based on the metadata stored within the `se` object
+* with tximeta, the transcript to gene mapping table is automatically created
 
 ```{r summarise_to_gene}
 
@@ -862,20 +865,23 @@ knitr::include_graphics("./data/astro_identity_heatmap.png")
 * it also allows to check which samples are similar to each other and spot individual outliers in the dataset
 * DESeq2 comes with a basic function (`plotPCA`, which calls `prcomp`) to plot the first two principal components (PC1 and PC2), which explain most of the variance in the gene expression data
 * the percentage of the total variance that is explained by each PC (direction) is included in the axes labels
-* by default it uses 500 genes with the highest variance across samples
+* by default it uses 500 genes with the highest variance across samples (i.e. highest row variance)
 
 ***
 
 * for more sophisticated PCA you could try, for example, the Bioconductor packages [pcaExplorer](http://bioconductor.org/packages/release/bioc/html/pcaExplorer.html) or [PCAtools](https://www.bioconductor.org/packages/release/bioc/html/PCAtools.html)
 * examples of other dimensionality reduction techniques are multidimensional scaling (MDS), and especially for single-cell RNA-seq, uniform manifold approximation and projection (UMAP) and t-distributed stochastic neighbor embedding (t-SNE)
-* note, for exploratory analysis, such as PCA, it is recommended to transform the counts to stabilize the variance across the mean
-* so that genes with low or high counts do not overly contribute to sample-sample distances
+
+***
+
+* note, for exploratory analysis, such as PCA, it is recommended to transform the counts to stabilize the variance across the mean so that genes with low or high counts do not overly contribute to sample-sample distances
 * DESeq2 offers the variance stabilizing transformation (`vst`) and regularized-logarithm transformation (`rlog`)
 
 
 ```{r PCA_plots, fig.width=5, fig.height=3.5}
 
 vsd <- vst(dds)
+class(vsd)
 
 DESeq2::plotPCA(vsd, intgroup = c("type"))
 DESeq2::plotPCA(vsd, intgroup = c("sex"))
@@ -884,7 +890,7 @@ DESeq2::plotPCA(vsd, intgroup = c("name"))
 
 * for example, here, you can see that sample PD1 appears as an outlier
 * you can also see that sex is a factor driving sample separation along PC2
-* further evaluation showed that sample PD1 shows residual pluripotency, e.g. indicated by increased expression of POU5F1
+* further evaluation showed that sample PD1 shows residual pluripotency, e.g. indicated by increased expression of POU5F1 (OCT4, ENSG00000204531)
 * PD1 was excluded from further analyses:
 
 ```{r exclude_sample}
@@ -901,7 +907,7 @@ gse
 * other popular methods to perform differential gene expression analysis:  
   + [edgeR](https://www.bioconductor.org/packages/release/bioc/html/edgeR.html) 
   + [limma with the voom method](https://www.bioconductor.org/packages/release/bioc/html/limma.html)
-* first, we construct a DESeqDataSet object from the imported and gene-level summarised data (`gse`), and using only the protein-coding genes
+* first, we construct a `DESeqDataSet` object (a specific class of object used by DESeq2) from the imported and gene-level summarised data (`gse`), and using only the protein-coding genes
 
 ```{r DESeqDataSet_setup}
 
@@ -948,7 +954,8 @@ cat("Number of genes after filtering: ", nrow(dds), fill=T)
 * note that DESeq2 uses the same formula notation as the `lm` function of base R to fit linear models
 * a formula starts with a tilde `~` followed by the variables with plus signs between them
 * variables for experimental design are encoded as factors
-* it recommended to use the reference level (control/untreated samples) as first level (here, `CT`)
+* by default, the last variable in the formula is used for building results tables
+* it is recommended to use the reference level (control or untreated samples) as first level of a factor (here, `CT` as the reference level of the factor `type`)
 
 
 ```{r dds_design}
@@ -983,7 +990,7 @@ res <- lfcShrink(dds, contrast = c("type", "PD", "CT"), res = res, type = "norma
 summary(res)
 ```
 
-* the object containing the results (`res`) contains a number of columns:
+* the object containing the results (`res`, a *DataFrame* object) contains a number of columns:
 
 ```{r results_columns}
 
@@ -1135,13 +1142,10 @@ EnhancedVolcano(res_dt_all,
 
 ***
 
-## GO enrichment
+## Gene Ontology enrichment
 
-* a common functional analysis step is the enrichment analysis for Gene Ontology
-* there are many R packages that could be used for this for example [topGO](https://bioconductor.org/packages/release/bioc/html/topGO.html) or [clusterProfiler](https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html)
-
-***
-
+* a common functional analysis step is the enrichment analysis for Gene Ontology terms
+* there are several R packages that could be used for over-representation analysis, for example [topGO](https://bioconductor.org/packages/release/bioc/html/topGO.html) or [clusterProfiler](https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html)
 * here, use package clusterProfiler with all DEGs as input
 * background (gene universe): all genes not filtered by DESeq2
 
@@ -1206,12 +1210,23 @@ go_enrich_print %>%
                                               list(extend = 'excel', exportOptions = list(columns=':visible')))))
 ```
 
-* enrichment results can be plotted:
+* enrichment results can be visualised by a dot plot showing the most enriched pathways:
 
 ```{r plot_enrichment_results, fig.width=9, fig.height=3.5}
 
 dotplot(go_enrich, showCategory = 10)
 ```
+
+## Other tools
+
+* there are also many online tools for gene set or ontology analysis
+* here are some examples:  
+  + [DAVID](https://david.ncifcrf.gov) 
+  + [GORilla](http://cbl-gorilla.cs.technion.ac.il)
+  + [GeneTrail](https://genetrail.bioinf.uni-sb.de/start.html)
+  + [g:Profiler](https://biit.cs.ut.ee/gprofiler/gost]), also comes with an R interface [grprofiler2](https://cran.r-project.org/web/packages/gprofiler2/index.html)  
+
+
 
 # SessionInfo
 
